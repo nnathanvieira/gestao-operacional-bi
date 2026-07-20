@@ -21,7 +21,7 @@ A solução permite investigar perguntas como:
 
 ## Demonstração
 
-[Abrir demonstração interativa](https://vieiraalvesnathan-cmd.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html)
+[Abrir demonstração interativa](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html)
 
 A demonstração independente permite alternar entre o resumo da produção e a análise crítica, além de filtrar período e setor. Todo o conteúdo é sintético.
 
@@ -94,7 +94,7 @@ src/
 
 ## Como explorar
 
-1. Comece pela [demonstração interativa](https://vieiraalvesnathan-cmd.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html).
+1. Comece pela [demonstração interativa](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html).
 2. Consulte a arquitetura em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 3. Veja as transformações em [`src/powerbi/01_POWER_QUERY_TRATAMENTO.md`](src/powerbi/01_POWER_QUERY_TRATAMENTO.md).
 4. Analise o modelo em [`src/powerbi/02_MODELO_DADOS.md`](src/powerbi/02_MODELO_DADOS.md).
