@@ -2,7 +2,7 @@
 
 **Case de Business Intelligence industrial com Power BI, Power Query, DAX, Excel/VBA e visuais HTML.**
 
-Este projeto demonstra competências aplicáveis a vagas de **Analista de Dados, Analista de BI e Desenvolvedor Power BI**, com foco em modelagem dimensional, automação, qualidade de dados e análise de operações.
+O projeto combina modelagem dimensional, automação, qualidade de dados e análise de operações para transformar diferentes rotinas industriais em uma visão integrada de planejamento e desempenho.
 
 > Todos os dados publicados são sintéticos. Arquivos operacionais, planilhas originais, nomes, matrículas, ordens, itens, quantidades e o modelo PBIX com dados reais não fazem parte do repositório.
 
@@ -21,9 +21,20 @@ A solução permite investigar perguntas como:
 
 ## Demonstração
 
-![Dashboard demonstrativo](docs/dashboard-demo.png)
+[Abrir demonstração interativa](https://vieiraalvesnathan-cmd.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html)
 
-Acesse [`demo/dashboard_demo.html`](demo/dashboard_demo.html) para explorar uma versão independente com filtros e dados totalmente fictícios.
+A demonstração independente permite alternar entre o resumo da produção e a análise crítica, além de filtrar período e setor. Todo o conteúdo é sintético.
+
+| Resumo geral | Análise crítica |
+| --- | --- |
+| ![Resumo geral do dashboard](docs/demo-resumo.png) | ![Análise crítica por ordem](docs/demo-analise-critica.png) |
+
+<details>
+<summary>Visualização responsiva</summary>
+
+![Dashboard industrial em tela móvel](docs/demo-mobile.png)
+
+</details>
 
 ## Competências demonstradas
 
@@ -83,7 +94,7 @@ src/
 
 ## Como explorar
 
-1. Comece pela demonstração em [`demo/dashboard_demo.html`](demo/dashboard_demo.html).
+1. Comece pela [demonstração interativa](https://vieiraalvesnathan-cmd.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html).
 2. Consulte a arquitetura em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 3. Veja as transformações em [`src/powerbi/01_POWER_QUERY_TRATAMENTO.md`](src/powerbi/01_POWER_QUERY_TRATAMENTO.md).
 4. Analise o modelo em [`src/powerbi/02_MODELO_DADOS.md`](src/powerbi/02_MODELO_DADOS.md).

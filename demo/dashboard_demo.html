@@ -294,12 +294,32 @@
       .grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
-      .app { grid-template-columns: 64px minmax(0, 1fr); }
-      .side { padding: 18px 8px; }
-      .brand { font-size: 0; padding: 0 4px 16px; }
-      .brand small { font-size: 9px; }
-      .nav { padding: 11px 5px; font-size: 10px; text-align: center; }
-      .top { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .app { grid-template-columns: 1fr; }
+      .side {
+        z-index: 20;
+        width: 100%;
+        height: auto;
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        align-items: center;
+        padding: 8px 10px;
+      }
+      .brand { padding: 0 8px; font-size: 13px; }
+      .brand small { display: none; }
+      .nav {
+        width: auto;
+        margin: 0;
+        padding: 10px 9px;
+        border-left: 0;
+        border-bottom: 3px solid transparent;
+        font-size: 10px;
+        text-align: center;
+      }
+      .nav:hover, .nav.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--yellow);
+      }
+      .top { position: relative; align-items: flex-start; flex-direction: column; padding: 12px; }
       .filters { width: 100%; }
       .filter { flex: 1; }
       .filter select { width: 100%; min-width: 0; }
@@ -309,6 +329,8 @@
       .panel.week-panel { overflow-x: auto; }
     }
     @media (max-width: 640px) {
+      .brand { font-size: 0; }
+      .brand::before { content: "Produção"; font-size: 13px; }
       .kpis { grid-template-columns: 1fr; }
       .filters { flex-direction: column; align-items: stretch; }
     }
@@ -440,7 +462,9 @@
 
     function filteredSectors() {
       const value = document.querySelector("#sector").value;
-      return value === "Todos" ? data.sectors : data.sectors.filter(row => row.name === value);
+      const factor = document.querySelector("#period").selectedIndex === 0 ? 1 : .94;
+      const rows = value === "Todos" ? data.sectors : data.sectors.filter(row => row.name === value);
+      return rows.map(row => ({...row, actual: Math.round(row.actual * factor)}));
     }
 
     function renderSummary() {
@@ -456,8 +480,10 @@
         kpi("Horas executadas", nf.format(hours), "Tempo líquido trabalhado") +
         kpi("Quantidade não produzida", nf.format(Math.max(0, plan - actual)), "Saldo do plano");
 
-      const max = Math.max(...data.weeks.flatMap(row => [row.plan, row.actual]));
-      document.querySelector("#weeks").innerHTML = data.weeks.map(row => `
+      const factor = document.querySelector("#period").selectedIndex === 0 ? 1 : .94;
+      const weeks = data.weeks.map(row => ({...row, actual: Math.round(row.actual * factor)}));
+      const max = Math.max(...weeks.flatMap(row => [row.plan, row.actual]));
+      document.querySelector("#weeks").innerHTML = weeks.map(row => `
         <div class="week"><div class="bars">
           <div class="bar plan" style="height:${row.plan / max * 100}%"><span>${nf.format(row.plan)}</span></div>
           <div class="bar actual" style="height:${row.actual / max * 100}%"><span>${nf.format(row.actual)}</span></div>
@@ -506,28 +532,30 @@
       `).join("");
     }
 
+    function activate(view) {
+      const target = document.querySelector(`.nav[data-view="${view}"]`) || document.querySelector(".nav");
+      document.querySelectorAll(".nav").forEach(item => item.classList.toggle("active", item === target));
+      document.querySelectorAll(".view").forEach(item => item.hidden = item.id !== target.dataset.view);
+      document.querySelector("#pageTitle").textContent = target.textContent;
+      const url = new URL(location.href);
+      url.searchParams.set("view", target.dataset.view);
+      history.replaceState(null, "", url);
+      window.scrollTo(0, 0);
+    }
     document.querySelectorAll(".nav").forEach(button => {
-      button.addEventListener("click", () => {
-        document.querySelectorAll(".nav").forEach(item => item.classList.remove("active"));
-        button.classList.add("active");
-        document.querySelectorAll(".view").forEach(view => view.hidden = true);
-        document.querySelector(`#${button.dataset.view}`).hidden = false;
-        document.querySelector("#pageTitle").textContent = button.textContent;
-      });
+      button.addEventListener("click", () => activate(button.dataset.view));
     });
     document.querySelector("#sector").addEventListener("change", () => {
       renderSummary();
       renderCritical();
     });
     document.querySelector("#period").addEventListener("change", event => {
-      const factor = event.target.selectedIndex === 0 ? 1 : .94;
-      data.sectors.forEach(row => row.actual = Math.round(row.actual * factor));
       renderSummary();
       renderCritical();
     });
-    window.scrollTo(0, 0);
     renderSummary();
     renderCritical();
+    activate(new URL(location.href).searchParams.get("view") || "resumo");
   </script>
 </body>
 </html>
