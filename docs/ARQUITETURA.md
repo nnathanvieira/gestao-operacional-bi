@@ -13,14 +13,11 @@
 | Pessoas e grupos | data, grupo, matrícula, turno e vigência | composição e rateio |
 | Histórico mensal | mês, setor, produção, horas e pessoas | comparativos históricos |
 
-Os nomes físicos dos arquivos originais são mantidos apenas nas consultas como
-contrato técnico. Nenhum arquivo de origem é distribuído.
+Os nomes físicos dos arquivos originais são mantidos apenas nas consultas como contrato técnico. Nenhum arquivo de origem é distribuído.
 
 ### 2. Staging
 
-Consultas `stg_*` leem e tipam as fontes, preservando o conteúdo bruto necessário
-para auditoria. Funções `fx*` concentram leitura de abas e normalização de chaves.
-As consultas de staging e funções permanecem com carga desabilitada.
+Consultas `stg_*` leem e tipam as fontes, preservando o conteúdo bruto necessário para auditoria. Funções `fx*` concentram leitura de abas e normalização de chaves. As consultas de staging e funções permanecem com carga desabilitada.
 
 ### 3. Modelo dimensional
 
@@ -43,11 +40,13 @@ Fatos principais:
 - `fato_manutencao_ordem`
 - `fato_producao_pessoa`
 - `fato_resumo_analise`
-- `fato_dados_mensais`
+- `fato_horas_prod`
+- `fato_param_turnos`
 - `fato_alertas`
 
-Os relacionamentos seguem o padrão `1:*`, com filtro em direção única da
-dimensão para o fato. Fatos não se relacionam diretamente entre si.
+Os relacionamentos seguem o padrão `1:*`, com filtro em direção única da dimensão para o fato. Fatos não se relacionam diretamente entre si.
+
+As informações históricas mensais ficam consolidadas em `fato_horas_prod`. `fato_resumo_analise` e `fato_param_turnos` preservam granularidades próprias e encontram as demais fatos somente por dimensões conformadas.
 
 ### 4. Regras analíticas
 
