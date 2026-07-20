@@ -1,0 +1,732 @@
+// ============================================================================
+// DASHBOARD OPERACIONAL DE PRODUCAO
+// Tabela recomendada para todas as medidas: _Medidas
+// Separadores: substitua virgulas por ponto e virgula se o Desktop exigir.
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// 01 - PRODUCAO E PLANEJAMENTO
+// ----------------------------------------------------------------------------
+
+Qtd Planejada =
+SUMX(
+    FILTER(
+        fato_ordens,
+        fato_ordens[MaisRecente] = 1 &&
+        fato_ordens[StatusOrdem] <> "SUSPENSA"
+    ),
+    IF(
+        fato_ordens[Setor] = "M1",
+        COALESCE(fato_ordens[QtdeOrdemConv], fato_ordens[QtdeOrdem]),
+        fato_ordens[QtdeOrdem]
+    )
+)
+
+Qtd Planejada Convertida M1 =
+CALCULATE(
+    SUM(fato_ordens[QtdeOrdemConv]),
+    fato_ordens[MaisRecente] = 1,
+    fato_ordens[StatusOrdem] <> "SUSPENSA",
+    fato_ordens[Setor] = "M1"
+)
+
+Qtd Produzida Oficial =
+SUM(fato_producao[Quantidade])
+
+Qtd Produzida Sistema =
+SUM(fato_producao_sistema[QtdeProduzidaSistemaAnalitica])
+
+Qtd Planejada M1 Analitica =
+CALCULATE([Qtd Planejada], fato_ordens[Setor] = "M1")
+
+Qtd Produzida Oficial M1 =
+CALCULATE([Qtd Produzida Oficial], fato_producao[Setor] = "M1")
+
+Saldo Disponivel Ordem =
+MAX(0, [Qtd Planejada] - [Qtd Produzida Oficial])
+
+Excesso Produzido Ordem =
+MAX(0, [Qtd Produzida Oficial] - [Qtd Planejada])
+
+Status Execucao Ordem =
+VAR Planejado = [Qtd Planejada]
+VAR Produzido = [Qtd Produzida Oficial]
+RETURN
+SWITCH(
+    TRUE(),
+    ISBLANK(Planejado) || Planejado = 0, "SEM PLANO",
+    Produzido = 0, "SEM LANCAMENTO",
+    Produzido > Planejado, "ACIMA DO PLANO",
+    Produzido = Planejado, "CONCLUIDA",
+    "EM PRODUCAO"
+)
+
+Divergencia Qtd Produzida =
+[Qtd Produzida Oficial] - [Qtd Produzida Sistema]
+
+% Divergencia Producao =
+DIVIDE([Divergencia Qtd Produzida], [Qtd Produzida Sistema])
+
+Saldo a Produzir =
+[Qtd Planejada] - [Qtd Produzida Oficial]
+
+% Produzido Oficial =
+DIVIDE([Qtd Produzida Oficial], [Qtd Planejada])
+
+Qtd Planejada Programada =
+SUM(fato_programacao[QtdeProgramada])
+
+Qtd Planejada Programada Periodo =
+CALCULATE(
+    [Qtd Planejada Programada],
+    TREATAS(
+        VALUES(dim_data[Data]),
+        fato_programacao[InicioPrevistoData]
+    )
+)
+
+% Execucao Planejada Programada =
+DIVIDE([Qtd Produzida Oficial], [Qtd Planejada Programada Periodo])
+
+Qtd Planejada Ate Momento =
+VAR DataLimite = MAX(dim_data[Data])
+RETURN
+CALCULATE(
+    SUM(fato_programacao[QtdeProgramada]),
+    FILTER(
+        fato_programacao,
+        NOT ISBLANK(fato_programacao[InicioPrevistoData]) &&
+        fato_programacao[InicioPrevistoData] <= DataLimite
+    )
+)
+
+% Planejado Ate Momento =
+DIVIDE([Qtd Planejada Ate Momento], [Qtd Planejada])
+
+% Atingimento Plano =
+DIVIDE([Qtd Produzida Oficial], [Qtd Planejada Ate Momento])
+
+Ordens Ativas =
+CALCULATE(
+    DISTINCTCOUNT(fato_ordens[Ordem]),
+    fato_ordens[MaisRecente] = 1,
+    fato_ordens[StatusOrdem] <> "SUSPENSA"
+)
+
+Ordens Suspensas =
+CALCULATE(
+    DISTINCTCOUNT(fato_ordens[Ordem]),
+    fato_ordens[MaisRecente] = 1,
+    fato_ordens[StatusOrdem] = "SUSPENSA"
+)
+
+Ordens Sem Lancamento Producao =
+VAR OrdensSistema = FILTER(VALUES(fato_ordens[Ordem]), NOT ISBLANK(fato_ordens[Ordem]))
+VAR OrdensProducao = FILTER(VALUES(fato_producao[Ordem]), NOT ISBLANK(fato_producao[Ordem]))
+RETURN COUNTROWS(EXCEPT(OrdensSistema, OrdensProducao))
+
+Lancamentos Sem Ordem No Calendario =
+VAR OrdensSistema = FILTER(VALUES(fato_ordens[Ordem]), NOT ISBLANK(fato_ordens[Ordem]))
+VAR OrdensProducao = FILTER(VALUES(fato_producao[Ordem]), NOT ISBLANK(fato_producao[Ordem]))
+RETURN COUNTROWS(EXCEPT(OrdensProducao, OrdensSistema))
+
+Ordens Com Divergencia Producao =
+COUNTROWS(
+    FILTER(
+        VALUES(dim_ordem[Ordem]),
+        VAR QtdOficial = CALCULATE([Qtd Produzida Oficial])
+        VAR QtdSistema = CALCULATE([Qtd Produzida Sistema])
+        RETURN
+            NOT ISBLANK(QtdOficial) &&
+            NOT ISBLANK(QtdSistema) &&
+            ABS(QtdOficial - QtdSistema) > 0.000001
+    )
+)
+
+Ordens Sem Maquina =
+CALCULATE(
+    DISTINCTCOUNT(fato_ordens[Ordem]),
+    fato_ordens[StatusOrdem] <> "SUSPENSA",
+    ISBLANK(fato_ordens[MaquinaPlanejada])
+)
+
+Ordens Sem Turno =
+CALCULATE(
+    DISTINCTCOUNT(fato_ordens[Ordem]),
+    fato_ordens[StatusOrdem] <> "SUSPENSA",
+    fato_ordens[StatusProgramacao] = "SEM TURNO DISPONIVEL"
+)
+
+Horas Necessarias =
+CALCULATE(
+    SUM(fato_ordens[HorasNecessarias]),
+    fato_ordens[StatusOrdem] <> "SUSPENSA"
+)
+
+Horas Disponiveis =
+COALESCE(
+    SUM(fato_resumo_analise[HorasDisponiveis]),
+    SUM(fato_disponibilidade[HorasTotais])
+)
+
+Horas Produtivas =
+COALESCE(
+    SUM(fato_horas_prod[HorasProdutivas]),
+    SUM(fato_dados_mensais[HorasProdutivas]),
+    SUM(fato_disponibilidade[HorasTrabalhadasReais])
+)
+
+Horas Executadas =
+VAR HorasHistoricas =
+    CALCULATE(
+        SUM(fato_dados_mensais[HorasTotais]),
+        FILTER(ALLSELECTED(dim_data[Data]), dim_data[Data] < DATE(2026, 6, 1))
+    )
+VAR HorasAtuais =
+    CALCULATE(
+        SUM(fato_eficiencia_lancamento[HorasTrabalhadasLiquidas]),
+        fato_eficiencia_lancamento[Data] >= DATE(2026, 6, 1)
+    )
+RETURN
+COALESCE(HorasHistoricas, 0) + COALESCE(HorasAtuais, 0)
+
+Meta Esperada Eficiencia =
+SUM(fato_eficiencia_lancamento[MetaEsperadaEficiencia])
+
+Eficiencia Media Lancamentos =
+DIVIDE(
+    SUM(fato_eficiencia_lancamento[SomaEficienciaLancamento]),
+    SUM(fato_eficiencia_lancamento[QtdLancamentosEficiencia])
+)
+
+Horas Ociosas =
+MAX(0, [Horas Produtivas] - [Horas Necessarias])
+
+Horas Ociosas Operacionais =
+[Horas Ociosas Resumo Analise]
+
+% Ociosidade Operacional =
+DIVIDE([Horas Ociosas Resumo Analise], [Horas Disponiveis])
+
+% Execucao Horas Disponiveis =
+DIVIDE([Horas Executadas], [Horas Disponiveis])
+
+Ociosidade Pecas =
+[Ociosidade Pecas Resumo Analise]
+
+% Ocupacao =
+DIVIDE([Horas Necessarias], [Horas Produtivas])
+
+Capacidade Pecas =
+CALCULATE(
+    SUM(fato_disponibilidade[CapacidadePecas]),
+    KEEPFILTERS(dim_maquina[TipoCapacidade] <> "AGREGADO")
+)
+
+Capacidade Utilizada % =
+DIVIDE([Qtd Produzida Oficial], [Capacidade Pecas])
+
+Pecas Por Hora Real =
+DIVIDE([Qtd Produzida Oficial], [Horas Executadas])
+
+Qtd Programada =
+SUM(fato_programacao[QtdeProgramada])
+
+Horas Programadas =
+// Nao somar TempoEstimadoH com HorasAlocadas: sao a mesma demanda.
+SUM(fato_programacao[HorasAlocadas])
+
+Recursos Sobrecarregados =
+CALCULATE(
+    DISTINCTCOUNT(fato_programacao[Maquina]),
+    fato_programacao[StatusProgramacao] = "SEM TURNO DISPONIVEL"
+)
+
+// ----------------------------------------------------------------------------
+// 02 - MANUTENCAO, PARADAS E SETUP
+// ----------------------------------------------------------------------------
+
+Horas Parada Manutencao =
+// Usa fato consolidado por ordem. Nao trocar pela tabela de detalhe.
+SUM(fato_manutencao_ordem[HorasParada])
+
+Horas Setup =
+SUM(fato_disponibilidade[HorasSetup])
+
+Horas Paradas Calendario =
+SUM(fato_disponibilidade[HorasParadas])
+
+Horas Parada Total =
+[Horas Parada Manutencao] + [Horas Setup]
+
+Qtd Ordens Manutencao =
+DISTINCTCOUNT(fato_manutencao_ordem[OrdemManutencao])
+
+Tempo Medio Resposta Manutencao =
+AVERAGE(fato_manutencao_ordem[HorasResposta])
+
+Tempo Medio Execucao Manutencao =
+AVERAGE(fato_manutencao_ordem[HorasExecucao])
+
+Horas Parada Preventiva =
+CALCULATE(
+    [Horas Parada Manutencao],
+    fato_manutencao_ordem[ClasseManutencao] = "PREVENTIVA"
+)
+
+Horas Parada Corretiva =
+CALCULATE(
+    [Horas Parada Manutencao],
+    fato_manutencao_ordem[ClasseManutencao] = "CORRETIVA"
+)
+
+% Preventiva =
+DIVIDE(
+    CALCULATE([Qtd Ordens Manutencao], fato_manutencao_ordem[ClasseManutencao] = "PREVENTIVA"),
+    [Qtd Ordens Manutencao]
+)
+
+% Corretiva =
+DIVIDE(
+    CALCULATE([Qtd Ordens Manutencao], fato_manutencao_ordem[ClasseManutencao] = "CORRETIVA"),
+    [Qtd Ordens Manutencao]
+)
+
+Pecas Hora Contextual =
+VAR MetaMaquina = MAX(dim_maquina[MetaPecasHora])
+VAR TaxaReal = [Pecas Por Hora Real]
+RETURN COALESCE(MetaMaquina, TaxaReal)
+
+Perda Estimada Pecas Manutencao =
+[Horas Parada Manutencao] * [Pecas Hora Contextual]
+
+Top Sintoma Manutencao =
+VAR TabelaTop =
+    TOPN(
+        1,
+        ADDCOLUMNS(VALUES(fato_manutencao_ordem[Sintoma]), "_Horas", [Horas Parada Manutencao]),
+        [_Horas], DESC,
+        fato_manutencao_ordem[Sintoma], ASC
+    )
+RETURN CONCATENATEX(TabelaTop, fato_manutencao_ordem[Sintoma], "")
+
+Top Maquina Parada =
+VAR TabelaTop =
+    TOPN(
+        1,
+        ADDCOLUMNS(VALUES(fato_manutencao_ordem[Maquina]), "_Horas", [Horas Parada Manutencao]),
+        [_Horas], DESC,
+        fato_manutencao_ordem[Maquina], ASC
+    )
+RETURN CONCATENATEX(TabelaTop, fato_manutencao_ordem[Maquina], "")
+
+// ----------------------------------------------------------------------------
+// 03 - PESSOAS, GRUPOS E AUSENCIAS
+// ----------------------------------------------------------------------------
+
+Qtd Pessoas Ativas =
+CALCULATE(
+    DISTINCTCOUNT(dim_funcionario[Matricula]),
+    dim_funcionario[Ativo] = "SIM"
+)
+
+Qtd Pessoas Trabalhando =
+DISTINCTCOUNT(fato_producao_pessoa[Matricula])
+
+Horas Pessoas Disponiveis =
+CALCULATE(
+    SUM(fato_disponibilidade[HorasTrabalhadasReais]),
+    NOT ISBLANK(fato_disponibilidade[Matricula])
+)
+
+Horas Ausentes =
+SUM(fato_ausencias[HorasAusentes])
+
+Dias Equivalentes Ausencia =
+DIVIDE([Horas Ausentes], 8)
+
+Qtd Produzida Grupo =
+CALCULATE(
+    SUM(fato_producao_pessoa[QuantidadeAtribuida]),
+    fato_producao_pessoa[TipoAtribuicao] = "RATEIO_GRUPO"
+)
+
+Qtd Produzida Pessoa =
+SUM(fato_producao_pessoa[QuantidadeAtribuida])
+
+Qtd Produzida Valida Eficiencia =
+SUM(fato_producao_pessoa[QuantidadeEficienciaAtribuida])
+
+Qtd Produzida Valida Grupo =
+CALCULATE(
+    [Qtd Produzida Valida Eficiencia],
+    fato_producao_pessoa[TipoAtribuicao] = "RATEIO_GRUPO"
+)
+
+Qtd Produzida Individual Direta =
+CALCULATE(
+    [Qtd Produzida Pessoa],
+    fato_producao_pessoa[TipoAtribuicao] = "INDIVIDUAL"
+)
+
+Qtd Produzida Rateada Grupo =
+CALCULATE(
+    [Qtd Produzida Pessoa],
+    fato_producao_pessoa[TipoAtribuicao] = "RATEIO_GRUPO"
+)
+
+Meta Grupo =
+CALCULATE(
+    SUM(fato_producao_pessoa[MetaPecasAtribuida]),
+    fato_producao_pessoa[TipoAtribuicao] = "RATEIO_GRUPO"
+)
+
+Meta Pessoa =
+SUM(fato_producao_pessoa[MetaPecasAtribuida])
+
+Eficiencia Grupo =
+DIVIDE([Qtd Produzida Valida Grupo], [Meta Grupo])
+
+Eficiencia Pessoa =
+DIVIDE([Qtd Produzida Valida Eficiencia], [Meta Pessoa])
+
+Eficiencia por Item =
+DIVIDE([Qtd Produzida Valida Eficiencia], [Meta Pessoa])
+
+Meta Esperada Producao =
+[Meta Pessoa]
+
+Qtd Registros Sem Meta Padrao =
+CALCULATE(
+    DISTINCTCOUNT(fato_producao_pessoa[ChaveEvento]),
+    fato_producao_pessoa[MetaValidaEficiencia] = FALSE()
+)
+
+Qtd Matriculas em Grupos =
+CALCULATE(
+    DISTINCTCOUNT(fato_grupos_eventos[Matricula]),
+    fato_grupos_eventos[TipoCadastro] = "CAD_GRUPOS"
+)
+
+Qtd Matriculas Grupos Sem Cadastro =
+COUNTROWS(
+    EXCEPT(
+        CALCULATETABLE(
+            VALUES(fato_grupos_eventos[Matricula]),
+            fato_grupos_eventos[TipoCadastro] = "CAD_GRUPOS"
+        ),
+        VALUES(dim_funcionario[Matricula])
+    )
+)
+
+Perda Estimada Pecas Ausencia =
+[Horas Ausentes] * [Pecas Hora Contextual]
+
+Qtd Grupos Ativos =
+DISTINCTCOUNT(fato_grupos_vigencia[Grupo])
+
+Qtd Grupos Sem Composicao =
+CALCULATE(
+    DISTINCTCOUNT(fato_producao_pessoa[ChaveEvento]),
+    fato_producao_pessoa[TipoAtribuicao] = "GRUPO_SEM_COMPOSICAO"
+)
+
+// ----------------------------------------------------------------------------
+// 04 - ALERTAS E QUALIDADE
+// ----------------------------------------------------------------------------
+
+Qtd Alertas Cadastro =
+COUNTROWS(fato_alertas)
+
+Qtd Recursos Com Demanda Sem Disponibilidade =
+CALCULATE(
+    DISTINCTCOUNT(fato_programacao[Maquina]),
+    fato_programacao[StatusProgramacao] = "SEM TURNO DISPONIVEL"
+)
+
+Qtd Itens Sem Meta =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    FILTER(fato_alertas, CONTAINSSTRING(fato_alertas[TipoAlerta], "SEM_META"))
+)
+
+Qtd Itens Sem Maquina =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    fato_alertas[TipoAlerta] = "ITEM_SEM_MAQUINA"
+)
+
+Qtd Apontamentos Sem Conversao =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    fato_alertas[TipoAlerta] = "APONTAMENTO_SEM_CONVERSAO"
+)
+
+Qtd Nomes Nao Padronizados =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    FILTER(fato_alertas, CONTAINSSTRING(fato_alertas[TipoAlerta], "NAO_PADRONIZADO"))
+)
+
+Qtd Registros Inconsistentes =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    fato_alertas[Severidade] IN {"CRITICA", "ATENCAO"}
+)
+
+Qtd Divergencias Producao =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    fato_alertas[TipoAlerta] = "DIVERGENCIA_QTD_PRODUZIDA"
+)
+
+Qtd Alertas Regras Eficiencia =
+CALCULATE(
+    COUNTROWS(fato_alertas),
+    FILTER(fato_alertas, LEFT(fato_alertas[TipoAlerta], 11) = "EFICIENCIA_")
+)
+
+Qtd Producoes Sem Maquina =
+CALCULATE(COUNTROWS(fato_producao), ISBLANK(fato_producao[Maquina]))
+
+Qtd Producoes Sem Duracao =
+CALCULATE(
+    COUNTROWS(fato_producao),
+    ISBLANK(fato_producao[DuracaoHoras])
+)
+
+Qtd Producoes Sem Quantidade =
+CALCULATE(COUNTROWS(fato_producao), ISBLANK(fato_producao[Quantidade]))
+
+Qtd Possiveis Duplicidades Producao =
+CALCULATE(COUNTROWS(fato_producao), fato_producao[PossivelDuplicidade] = TRUE())
+
+Score Qualidade Dados =
+VAR RegistrosBase =
+    COUNTROWS(fato_producao) + COUNTROWS(fato_ordens) + COUNTROWS(fato_manutencao_ordem)
+VAR Penalidade =
+    [Qtd Registros Inconsistentes] +
+    [Qtd Producoes Sem Maquina] * 2 +
+    [Qtd Producoes Sem Duracao] +
+    [Qtd Producoes Sem Quantidade] * 3
+RETURN
+MAX(0, 1 - DIVIDE(Penalidade, RegistrosBase))
+
+// ----------------------------------------------------------------------------
+// 05 - REFUGO: ESTRUTURA RESERVADA
+// ----------------------------------------------------------------------------
+
+Qtd Refugada = BLANK()
+
+% Refugo = BLANK()
+
+Valor Refugado = BLANK()
+
+Qtd Reaproveitada = BLANK()
+
+% Reaproveitamento = BLANK()
+
+Valor Reaproveitado = BLANK()
+
+Status Base Refugo =
+"Base de refugo ainda nao conectada"
+
+// ----------------------------------------------------------------------------
+// 06 - AUDITORIA E APOIO AO HTML
+// ----------------------------------------------------------------------------
+
+Ultima Atualizacao =
+NOW()
+
+Qtd Registros Producao =
+COUNTROWS(fato_producao)
+
+Qtd Registros Ordens =
+COUNTROWS(fato_ordens)
+
+Qtd Registros Manutencao =
+COUNTROWS(fato_manutencao_ordem)
+
+Qtd Registros Grupos =
+COUNTROWS(fato_grupos_eventos)
+
+Qtd Bases Conectadas =
+5
+
+Qtd Bases Pendentes =
+1
+
+Status Reconciliacao Producao =
+VAR Divergencias = [Ordens Com Divergencia Producao]
+VAR SemLancamento = [Ordens Sem Lancamento Producao]
+VAR SemOrdem = [Lancamentos Sem Ordem No Calendario]
+RETURN
+IF(
+    Divergencias + SemLancamento + SemOrdem = 0,
+    "OK",
+    "REVISAO NECESSARIA"
+)
+
+// Medidas formatadas para cards. Mantenha as medidas numericas acima para uso analitico.
+
+Fmt Qtd Produzida Oficial = FORMAT([Qtd Produzida Oficial], "#,##0")
+
+Fmt Qtd Produzida Sistema = FORMAT([Qtd Produzida Sistema], "#,##0")
+
+Fmt Divergencia Producao = FORMAT([Divergencia Qtd Produzida], "+#,##0;-#,##0;0")
+
+Fmt Horas Executadas = FORMAT([Horas Executadas], "#,##0.0")
+
+Fmt Eficiencia Geral = FORMAT([% Atingimento Plano], "0.0%")
+
+Fmt Score Qualidade = FORMAT([Score Qualidade Dados], "0.0%")
+
+// --------------------------------------------------------------------------
+// Coordenadas finais - producao, resumo analise, historico e comparativos
+// --------------------------------------------------------------------------
+
+Qtd Produzida Real =
+SUM(fato_producao[Quantidade])
+
+Qtd Planejada Planejamento Mensal =
+SUM(fato_resumo_analise[QtdePlanejada])
+
+Qtd Produzida Resumo Analise =
+SUM(fato_resumo_analise[QtdeProduzidaResumo])
+
+Qtd Nao Produzida =
+MAX(0, [Qtd Planejada Planejamento Mensal] - [Qtd Produzida Real])
+
+% Produzido do Plano =
+DIVIDE([Qtd Produzida Real], [Qtd Planejada Planejamento Mensal])
+
+Horas Disponiveis Resumo Analise =
+SUM(fato_resumo_analise[HorasDisponiveis])
+
+Horas Necessarias Resumo Analise =
+SUM(fato_resumo_analise[HorasNecessarias])
+
+Horas Ociosas Resumo Analise =
+SUM(fato_resumo_analise[HorasOciosas])
+
+Ociosidade Pecas Resumo Analise =
+SUM(fato_resumo_analise[OciosidadePecas])
+
+% Ocupacao Resumo Analise =
+DIVIDE([Horas Necessarias Resumo Analise], [Horas Disponiveis Resumo Analise])
+
+Horas Parada Manutencao Aplicavel =
+CALCULATE(
+    [Horas Parada Manutencao],
+    fato_manutencao_ordem[ClasseManutencao] = "CORRETIVA",
+    TREATAS(VALUES(fato_resumo_analise[Maquina]), fato_manutencao_ordem[Maquina])
+)
+
+Horas Setup Aplicavel =
+CALCULATE(
+    [Horas Setup],
+    TREATAS(VALUES(fato_resumo_analise[Maquina]), fato_disponibilidade[Maquina])
+)
+
+Horas Produtivas Com Desconto =
+MAX(
+    0,
+    [Horas Disponiveis Resumo Analise]
+        - [Horas Parada Manutencao Aplicavel]
+)
+
+Meta Producao Ajustada =
+SUMX(
+    VALUES(fato_resumo_analise[Maquina]),
+    VAR HorasAjustadas = CALCULATE([Horas Produtivas Com Desconto])
+    VAR MetaHora = CALCULATE(MAX(dim_maquina[MetaPecasHora]))
+    RETURN HorasAjustadas * MetaHora
+)
+
+% Eficiencia Geral Fabrica =
+DIVIDE([Qtd Produzida Real], [Meta Producao Ajustada])
+
+% Eficiencia Maquina =
+DIVIDE([Qtd Produzida Real], [Meta Producao Ajustada])
+
+% Disponibilidade Maquina =
+DIVIDE(
+    [Horas Disponiveis Resumo Analise] - [Horas Parada Manutencao Aplicavel],
+    [Horas Disponiveis Resumo Analise]
+)
+
+% Conclusao Ordem =
+DIVIDE([Qtd Produzida Oficial], [Qtd Planejada])
+
+% Conclusao Media Setor =
+DIVIDE([Qtd Produzida Oficial], [Qtd Planejada])
+
+Planejado Semana Proporcional =
+SUMX(
+    VALUES(fato_resumo_analise[Setor]),
+    VAR SetorAtual = SELECTEDVALUE(fato_resumo_analise[Setor])
+    VAR PlanejadoMes = CALCULATE([Qtd Planejada Planejamento Mensal])
+    VAR HorasSemana =
+        CALCULATE(
+            SUM(fato_disponibilidade[HorasTotais]),
+            TREATAS({SetorAtual}, fato_disponibilidade[Setor])
+        )
+    VAR HorasMes =
+        CALCULATE(
+            SUM(fato_disponibilidade[HorasTotais]),
+            ALL(dim_data[SemanaMes]),
+            TREATAS({SetorAtual}, fato_disponibilidade[Setor])
+        )
+    RETURN PlanejadoMes * DIVIDE(HorasSemana, HorasMes)
+)
+
+Produzido Semana =
+[Qtd Produzida Real]
+
+% Entregue Semana =
+DIVIDE([Produzido Semana], [Planejado Semana Proporcional])
+
+Horas Disponiveis Ate Hoje =
+VAR DataMaxContexto = MAX(dim_data[Data])
+VAR DataCorte = MIN(TODAY(), DataMaxContexto)
+RETURN
+CALCULATE(
+    SUM(fato_param_turnos[HorasReaisRef]),
+    fato_param_turnos[Trabalha] = "SIM",
+    FILTER(ALLSELECTED(dim_data[Data]), dim_data[Data] <= DataCorte)
+)
+
+% Esperado Ate Hoje =
+DIVIDE(
+    [Horas Disponiveis Ate Hoje],
+    CALCULATE(
+        SUM(fato_param_turnos[HorasReaisRef]),
+        fato_param_turnos[Trabalha] = "SIM",
+        ALLSELECTED(dim_data[Data])
+    )
+)
+
+Producao Esperada Ate Hoje =
+[Qtd Planejada Planejamento Mensal] * [% Esperado Ate Hoje]
+
+% Execucao Horas Ate Hoje =
+DIVIDE([Horas Executadas], [Horas Disponiveis Ate Hoje])
+
+Qtd Funcionarios =
+COALESCE(
+    SUM(fato_dados_mensais[QtdFuncionarios]),
+    [Qtd Pessoas Trabalhando]
+)
+
+Horas Extras =
+SUM(fato_dados_mensais[HorasExtras])
+
+Variacao Mes Ano Anterior % =
+VAR ValorAtual = [Qtd Produzida Real]
+VAR ValorAnoAnterior =
+    CALCULATE(
+        [Qtd Produzida Real],
+        DATEADD(dim_data[Data], -1, YEAR)
+    )
+RETURN
+DIVIDE(ValorAtual - ValorAnoAnterior, ValorAnoAnterior)

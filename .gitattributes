@@ -1,0 +1,6 @@
+* text=auto
+*.bas text eol=crlf
+*.dax text eol=crlf
+*.html text eol=lf
+*.json text eol=lf
+*.md text eol=lf

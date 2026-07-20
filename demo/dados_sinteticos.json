@@ -1,0 +1,34 @@
+{
+  "aviso": "Dados totalmente sinteticos para demonstracao",
+  "periodo": "2026-01",
+  "setores": [
+    {"setor": "Usinagem", "planejado": 128000, "produzido": 119400, "horasDisponiveis": 820, "horasExecutadas": 748},
+    {"setor": "Montagem", "planejado": 94000, "produzido": 88700, "horasDisponiveis": 690, "horasExecutadas": 641},
+    {"setor": "Injecao", "planejado": 156000, "produzido": 148900, "horasDisponiveis": 910, "horasExecutadas": 842},
+    {"setor": "Acabamento", "planejado": 72000, "produzido": 68300, "horasDisponiveis": 510, "horasExecutadas": 476}
+  ],
+  "semanas": [
+    {"semana": "S1", "planejado": 101000, "produzido": 95200},
+    {"semana": "S2", "planejado": 113000, "produzido": 109400},
+    {"semana": "S3", "planejado": 118000, "produzido": 112100},
+    {"semana": "S4", "planejado": 96000, "produzido": 91700},
+    {"semana": "S5", "planejado": 22000, "produzido": 16900}
+  ],
+  "recursos": [
+    {"recurso": "Recurso 01", "eficiencia": 0.96, "quantidade": 48200},
+    {"recurso": "Recurso 02", "eficiencia": 0.91, "quantidade": 41700},
+    {"recurso": "Recurso 03", "eficiencia": 0.87, "quantidade": 36900},
+    {"recurso": "Recurso 04", "eficiencia": 0.82, "quantidade": 31400},
+    {"recurso": "Recurso 05", "eficiencia": 0.78, "quantidade": 27800}
+  ],
+  "ordens": [
+    {"ordem": "OP-2026-001", "setor": "Usinagem", "planejado": 18000, "produzido": 18000, "status": "Concluida"},
+    {"ordem": "OP-2026-002", "setor": "Montagem", "planejado": 14500, "produzido": 12100, "status": "Em execucao"},
+    {"ordem": "OP-2026-003", "setor": "Injecao", "planejado": 22000, "produzido": 22800, "status": "Excesso"},
+    {"ordem": "OP-2026-004", "setor": "Acabamento", "planejado": 9800, "produzido": 0, "status": "Sem lancamento"}
+  ],
+  "grupos": [
+    {"grupo": "Equipe Alfa", "componentes": ["Pessoa A", "Pessoa B", "Pessoa C"], "eficiencia": 0.93, "quantidade": 18600},
+    {"grupo": "Equipe Beta", "componentes": ["Pessoa D", "Pessoa E"], "eficiencia": 0.88, "quantidade": 14200}
+  ]
+}

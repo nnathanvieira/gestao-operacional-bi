@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard de Produção - Demonstração</title>
+  <style>
+    :root {
+      --bg: #171717;
+      --surface: #242424;
+      --surface-2: #303030;
+      --line: #444;
+      --text: #f7f7f7;
+      --muted: #bdbdbd;
+      --yellow: #ffcc00;
+      --green: #4fd1a1;
+      --red: #ff6b6b;
+      --orange: #ff9f43;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+    button, select, input { font: inherit; }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      background: #202020;
+      padding: 22px 14px;
+    }
+    .brand {
+      padding: 0 10px 22px;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .brand small {
+      display: block;
+      color: var(--yellow);
+      font-size: 11px;
+      margin-top: 7px;
+      font-weight: 700;
+    }
+    .nav {
+      width: 100%;
+      margin: 4px 0;
+      padding: 11px 12px;
+      border: 0;
+      border-left: 3px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+    }
+    .nav:hover, .nav.active {
+      color: var(--text);
+      background: #2b2b2b;
+      border-left-color: var(--yellow);
+    }
+    .main { min-width: 0; overflow-x: hidden; }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 68px;
+      padding: 12px 22px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(23, 23, 23, .97);
+    }
+    h1 { margin: 0; font-size: 20px; }
+    .filters { display: flex; align-items: center; gap: 10px; }
+    .filter {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .filter select {
+      min-width: 150px;
+      padding: 8px 30px 8px 10px;
+      color: var(--text);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+    .content { padding: 18px 22px 30px; }
+    .notice {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 5px 8px;
+      border: 1px solid #6b5b00;
+      color: var(--yellow);
+      background: #2b270e;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .kpi, .panel {
+      background: var(--surface);
+      border: 1px solid #353535;
+      border-radius: 7px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .18);
+    }
+    .kpi {
+      min-height: 112px;
+      padding: 15px;
+      border-top: 3px solid var(--yellow);
+    }
+    .kpi .label { color: var(--muted); font-size: 12px; }
+    .kpi .value {
+      margin-top: 14px;
+      font-size: 25px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .kpi .detail { margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .panel { min-width: 0; padding: 16px; }
+    .panel h2 { margin: 0 0 16px; font-size: 15px; }
+    .legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 13px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 5px;
+      border-radius: 50%;
+    }
+    .week-chart {
+      height: 250px;
+      display: flex;
+      align-items: end;
+      gap: 18px;
+      padding: 28px 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .week {
+      height: 100%;
+      flex: 1;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      align-items: end;
+      gap: 8px;
+      min-width: 62px;
+    }
+    .bars {
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: end;
+      gap: 5px;
+    }
+    .bar {
+      position: relative;
+      width: 32%;
+      min-width: 18px;
+      max-width: 34px;
+      border-radius: 3px 3px 0 0;
+    }
+    .bar.plan { background: #5a5a5a; }
+    .bar.actual { background: var(--yellow); }
+    .bar span {
+      position: absolute;
+      left: 50%;
+      top: -21px;
+      transform: translateX(-50%);
+      color: var(--text);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .week-label { text-align: center; color: var(--muted); font-size: 11px; }
+    .sector-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 70px;
+      gap: 10px;
+      align-items: center;
+      margin: 14px 0;
+      font-size: 12px;
+    }
+    .track {
+      height: 14px;
+      overflow: hidden;
+      background: #494949;
+      border-radius: 3px;
+    }
+    .fill { height: 100%; background: var(--yellow); }
+    .resources {
+      min-width: 520px;
+      height: 260px;
+      display: flex;
+      align-items: end;
+      gap: 18px;
+      padding: 24px 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .resource {
+      flex: 1;
+      height: 100%;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 9px;
+      align-items: end;
+      text-align: center;
+    }
+    .stack {
+      position: relative;
+      width: 54px;
+      height: 100%;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: end;
+      background: #4b4b4b;
+      border-radius: 4px 4px 0 0;
+      overflow: visible;
+    }
+    .stack-fill {
+      width: 100%;
+      background: var(--yellow);
+      border-radius: 3px 3px 0 0;
+    }
+    .badge {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 6px;
+      color: #161616;
+      background: #f5f5f5;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .resource-label { color: var(--muted); font-size: 10px; }
+    .scroll-x { overflow-x: auto; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th {
+      position: sticky;
+      top: 0;
+      padding: 10px;
+      color: var(--muted);
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+    td { padding: 11px 10px; border-bottom: 1px solid #393939; }
+    td.num, th.num { text-align: right; }
+    .status {
+      display: inline-block;
+      padding: 4px 7px;
+      border-radius: 4px;
+      background: #3b3b3b;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .status.ok { color: var(--green); }
+    .status.warn { color: var(--orange); }
+    .status.bad { color: var(--red); }
+    .view[hidden] { display: none; }
+    @media (max-width: 1100px) {
+      .kpis { grid-template-columns: repeat(3, 1fr); }
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .app { grid-template-columns: 64px minmax(0, 1fr); }
+      .side { padding: 18px 8px; }
+      .brand { font-size: 0; padding: 0 4px 16px; }
+      .brand small { font-size: 9px; }
+      .nav { padding: 11px 5px; font-size: 10px; text-align: center; }
+      .top { align-items: flex-start; flex-direction: column; padding: 12px; }
+      .filters { width: 100%; }
+      .filter { flex: 1; }
+      .filter select { width: 100%; min-width: 0; }
+      .content { padding: 12px; }
+      .kpis { grid-template-columns: repeat(2, 1fr); }
+      .week-chart { min-width: 600px; }
+      .panel.week-panel { overflow-x: auto; }
+    }
+    @media (max-width: 640px) {
+      .kpis { grid-template-columns: 1fr; }
+      .filters { flex-direction: column; align-items: stretch; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">Dashboard de Produção<small>DEMONSTRAÇÃO</small></div>
+      <button class="nav active" data-view="resumo">Resumo geral</button>
+      <button class="nav" data-view="critica">Análise crítica</button>
+    </aside>
+
+    <main class="main">
+      <header class="top">
+        <h1 id="pageTitle">Resumo geral</h1>
+        <div class="filters">
+          <label class="filter">Período
+            <select id="period">
+              <option>Janeiro de 2026</option>
+              <option>Fevereiro de 2026</option>
+            </select>
+          </label>
+          <label class="filter">Setor
+            <select id="sector">
+              <option value="Todos">Todos os setores</option>
+              <option>Usinagem</option>
+              <option>Montagem</option>
+              <option>Injeção</option>
+              <option>Acabamento</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <div class="content">
+        <span class="notice">DADOS 100% SINTÉTICOS</span>
+
+        <section class="view" id="resumo">
+          <div class="kpis" id="kpis"></div>
+          <div class="grid">
+            <section class="panel week-panel">
+              <h2>Evolução semanal da produção</h2>
+              <div class="week-chart" id="weeks"></div>
+              <div class="legend">
+                <span><i class="dot" style="background:#5a5a5a"></i>Planejado</span>
+                <span><i class="dot" style="background:#ffcc00"></i>Produzido</span>
+              </div>
+            </section>
+            <section class="panel">
+              <h2>Produzido por setor</h2>
+              <div id="sectors"></div>
+            </section>
+          </div>
+          <section class="panel" style="margin-top:12px">
+            <h2>Eficiência por recurso</h2>
+            <div class="scroll-x"><div class="resources" id="resources"></div></div>
+            <div class="legend">
+              <span><i class="dot" style="background:#ffcc00"></i>Eficiência</span>
+              <span><i class="dot" style="background:#777"></i>Complemento até 100%</span>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="critica" hidden>
+          <div class="kpis" id="criticalKpis"></div>
+          <section class="panel">
+            <h2>Execução por ordem</h2>
+            <div class="scroll-x">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ordem</th>
+                    <th>Setor</th>
+                    <th class="num">Qtde planejada</th>
+                    <th class="num">Qtde produzida</th>
+                    <th class="num">Execução</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="orders"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const data = {
+      sectors: [
+        {name: "Usinagem", plan: 128000, actual: 119400, hours: 748},
+        {name: "Montagem", plan: 94000, actual: 88700, hours: 641},
+        {name: "Injeção", plan: 156000, actual: 148900, hours: 842},
+        {name: "Acabamento", plan: 72000, actual: 68300, hours: 476}
+      ],
+      weeks: [
+        {name: "S1", plan: 101000, actual: 95200},
+        {name: "S2", plan: 113000, actual: 109400},
+        {name: "S3", plan: 118000, actual: 112100},
+        {name: "S4", plan: 96000, actual: 91700},
+        {name: "S5", plan: 22000, actual: 16900}
+      ],
+      resources: [
+        {name: "Recurso 01", efficiency: .96, quantity: 48200},
+        {name: "Recurso 02", efficiency: .91, quantity: 41700},
+        {name: "Recurso 03", efficiency: .87, quantity: 36900},
+        {name: "Recurso 04", efficiency: .82, quantity: 31400},
+        {name: "Recurso 05", efficiency: .78, quantity: 27800}
+      ],
+      orders: [
+        {id: "OP-2026-001", sector: "Usinagem", plan: 18000, actual: 18000, status: "Concluída"},
+        {id: "OP-2026-002", sector: "Montagem", plan: 14500, actual: 12100, status: "Em execução"},
+        {id: "OP-2026-003", sector: "Injeção", plan: 22000, actual: 22800, status: "Excesso"},
+        {id: "OP-2026-004", sector: "Acabamento", plan: 9800, actual: 0, status: "Sem lançamento"}
+      ]
+    };
+    const nf = new Intl.NumberFormat("pt-BR");
+    const pct = value => new Intl.NumberFormat("pt-BR", {
+      style: "percent", maximumFractionDigits: 1
+    }).format(value || 0);
+    const sum = (rows, key) => rows.reduce((total, row) => total + row[key], 0);
+
+    function kpi(label, value, detail = "") {
+      return `<article class="kpi"><div class="label">${label}</div>
+        <div class="value">${value}</div><div class="detail">${detail}</div></article>`;
+    }
+
+    function filteredSectors() {
+      const value = document.querySelector("#sector").value;
+      return value === "Todos" ? data.sectors : data.sectors.filter(row => row.name === value);
+    }
+
+    function renderSummary() {
+      const rows = filteredSectors();
+      const plan = sum(rows, "plan");
+      const actual = sum(rows, "actual");
+      const hours = sum(rows, "hours");
+      const efficiency = plan ? actual / plan : 0;
+      document.querySelector("#kpis").innerHTML =
+        kpi("Qtde produzida", nf.format(actual), "Lançado pela produção") +
+        kpi("Qtde planejada", nf.format(plan), "Planejamento mensal") +
+        kpi("Eficiência", pct(efficiency), "Meta proporcional") +
+        kpi("Horas executadas", nf.format(hours), "Tempo líquido trabalhado") +
+        kpi("Quantidade não produzida", nf.format(Math.max(0, plan - actual)), "Saldo do plano");
+
+      const max = Math.max(...data.weeks.flatMap(row => [row.plan, row.actual]));
+      document.querySelector("#weeks").innerHTML = data.weeks.map(row => `
+        <div class="week"><div class="bars">
+          <div class="bar plan" style="height:${row.plan / max * 100}%"><span>${nf.format(row.plan)}</span></div>
+          <div class="bar actual" style="height:${row.actual / max * 100}%"><span>${nf.format(row.actual)}</span></div>
+        </div><div class="week-label">${row.name}<br>${pct(row.actual / row.plan)}</div></div>
+      `).join("");
+
+      document.querySelector("#sectors").innerHTML = rows.map(row => `
+        <div class="sector-row"><span>${row.name}</span>
+          <div class="track"><div class="fill" style="width:${Math.min(100, row.actual / row.plan * 100)}%"></div></div>
+          <strong>${pct(row.actual / row.plan)}</strong></div>
+      `).join("");
+
+      document.querySelector("#resources").innerHTML = data.resources.map(row => `
+        <div class="resource"><div class="stack">
+          <div class="badge" style="bottom:${Math.min(96, row.efficiency * 100)}%">${pct(row.efficiency)}</div>
+          <div class="stack-fill" style="height:${Math.min(100, row.efficiency * 100)}%"></div>
+        </div><div class="resource-label">${row.name}<br>${nf.format(row.quantity)} un.</div></div>
+      `).join("");
+    }
+
+    function statusClass(status) {
+      if (status === "Concluída") return "ok";
+      if (status === "Em execução") return "warn";
+      return "bad";
+    }
+
+    function renderCritical() {
+      const selected = document.querySelector("#sector").value;
+      const rows = selected === "Todos" ? data.orders : data.orders.filter(row => row.sector === selected);
+      const without = rows.filter(row => row.actual === 0).length;
+      const excess = rows.reduce((total, row) => total + Math.max(0, row.actual - row.plan), 0);
+      const balance = rows.reduce((total, row) => total + Math.max(0, row.plan - row.actual), 0);
+      document.querySelector("#criticalKpis").innerHTML =
+        kpi("Ordens analisadas", nf.format(rows.length)) +
+        kpi("Sem lançamento", nf.format(without)) +
+        kpi("Saldo a produzir", nf.format(balance)) +
+        kpi("Excesso produzido", nf.format(excess)) +
+        kpi("Conformidade", pct(rows.length ? (rows.length - without) / rows.length : 0));
+
+      document.querySelector("#orders").innerHTML = rows.map(row => `
+        <tr><td>${row.id}</td><td>${row.sector}</td>
+          <td class="num">${nf.format(row.plan)}</td>
+          <td class="num">${nf.format(row.actual)}</td>
+          <td class="num">${pct(row.actual / row.plan)}</td>
+          <td><span class="status ${statusClass(row.status)}">${row.status}</span></td></tr>
+      `).join("");
+    }
+
+    document.querySelectorAll(".nav").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".nav").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        document.querySelectorAll(".view").forEach(view => view.hidden = true);
+        document.querySelector(`#${button.dataset.view}`).hidden = false;
+        document.querySelector("#pageTitle").textContent = button.textContent;
+      });
+    });
+    document.querySelector("#sector").addEventListener("change", () => {
+      renderSummary();
+      renderCritical();
+    });
+    document.querySelector("#period").addEventListener("change", event => {
+      const factor = event.target.selectedIndex === 0 ? 1 : .94;
+      data.sectors.forEach(row => row.actual = Math.round(row.actual * factor));
+      renderSummary();
+      renderCritical();
+    });
+    window.scrollTo(0, 0);
+    renderSummary();
+    renderCritical();
+  </script>
+</body>
+</html>

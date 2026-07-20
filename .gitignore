@@ -1,0 +1,28 @@
+# Operational files are never part of the published repository.
+*.pbix
+*.pbit
+*.xlsx
+*.xlsm
+*.xlsb
+*.docx
+*.pdf
+*.zip
+
+# Credentials and local configuration.
+.env
+.env.*
+*.secret
+secrets/
+
+# Local tooling.
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+
+# Temporary files.
+~$*
+*.tmp
+Thumbs.db
+Desktop.ini
+.DS_Store

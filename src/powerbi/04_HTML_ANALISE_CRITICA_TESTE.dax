@@ -1,0 +1,602 @@
+HTML - Dashboard Analise Critica = 
+VAR dq = UNICHAR(34)
+
+// --------------------------------------------------------------------------
+// JSON: producao oficial
+// --------------------------------------------------------------------------
+VAR TabelaProducaoCompacta =
+    FILTER(fato_producao, NOT ISBLANK(fato_producao[Data]))
+VAR JsonProducao =
+    "[" &
+    CONCATENATEX(
+        TabelaProducaoCompacta,
+        VAR DataTxt = FORMAT(fato_producao[Data], "yyyy-MM-dd")
+        VAR MatGrupo = SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(COALESCE(fato_producao[MatriculaGrupo], ""), UNICHAR(92), "/"), dq, "'"), UNICHAR(10), " ")
+        VAR EhGrupo = LEFT(UPPER(MatGrupo), 5) = "GRUPO"
+        VAR NomePessoa =
+            IF(
+                EhGrupo = FALSE() && MatGrupo <> "",
+                COALESCE(
+                    LOOKUPVALUE(dim_funcionario[Nome], dim_funcionario[Matricula], MatGrupo),
+                    MatGrupo
+                ),
+                ""
+            )
+        VAR OrdemTxt = SUBSTITUTE(COALESCE(fato_producao[Ordem], ""), dq, "'")
+        VAR MaquinaTxt = SUBSTITUTE(COALESCE(fato_producao[Maquina], ""), dq, "'")
+        VAR SetorTxt = SUBSTITUTE(COALESCE(fato_producao[Setor], ""), dq, "'")
+        VAR TurnoTxt = SUBSTITUTE(COALESCE(fato_producao[Turno], ""), dq, "'")
+        VAR QtdTxt = IF(ISBLANK(fato_producao[Quantidade]), "null", FORMAT(fato_producao[Quantidade], "0.############", "en-US"))
+        VAR HorasTxt = IF(ISBLANK(fato_producao[DuracaoHoras]), "null", FORMAT(fato_producao[DuracaoHoras], "0.############", "en-US"))
+        RETURN
+            "{" &
+            dq & "d" & dq & ":" & dq & DataTxt & dq & "," &
+            dq & "s" & dq & ":" & dq & SetorTxt & dq & "," &
+            dq & "m" & dq & ":" & dq & MaquinaTxt & dq & "," &
+            dq & "t" & dq & ":" & dq & TurnoTxt & dq & "," &
+            dq & "o" & dq & ":" & dq & OrdemTxt & dq & "," &
+            dq & "g" & dq & ":" & dq & IF(EhGrupo, MatGrupo, "") & dq & "," &
+            dq & "e" & dq & ":" & dq & SUBSTITUTE(NomePessoa, dq, "'") & dq & "," &
+            dq & "q" & dq & ":" & QtdTxt & "," &
+            dq & "h" & dq & ":" & HorasTxt &
+            "}",
+        ","
+    ) &
+    "]"
+
+// --------------------------------------------------------------------------
+// JSON: ordens e reconciliacao
+// --------------------------------------------------------------------------
+VAR JsonOrdens =
+    "[" &
+    CONCATENATEX(
+        fato_ordens,
+        VAR OrdemAtual = fato_ordens[Ordem]
+        VAR QtdOficial =
+            SUMX(
+                FILTER(fato_producao, fato_producao[Ordem] = OrdemAtual),
+                fato_producao[Quantidade]
+            )
+        VAR QtdPlanejada =
+            IF(
+                fato_ordens[Setor] = "M1",
+                COALESCE(fato_ordens[QtdeOrdemConv], fato_ordens[QtdeOrdem]),
+                fato_ordens[QtdeOrdem]
+            )
+        VAR QtdSistema =
+            IF(
+                fato_ordens[Setor] = "M1",
+                COALESCE(fato_ordens[QtdeProduzidaConv], fato_ordens[QtdeProduzidaSistema]),
+                fato_ordens[QtdeProduzidaSistema]
+            )
+        VAR Divergencia = COALESCE(QtdOficial, 0) - COALESCE(QtdSistema, 0)
+        VAR TipoDivergencia =
+            IF(
+                ISBLANK(QtdOficial),
+                "SEM_LANCAMENTO",
+                IF(ABS(Divergencia) > 0.000001, "DIVERGENTE", "OK")
+            )
+        VAR OrdemTxt = SUBSTITUTE(COALESCE(OrdemAtual, ""), dq, "'")
+        VAR SetorTxt = SUBSTITUTE(COALESCE(fato_ordens[Setor], ""), dq, "'")
+        VAR MaquinaTxt = SUBSTITUTE(COALESCE(fato_ordens[MaquinaPlanejada], ""), dq, "'")
+        VAR ItemTxt = SUBSTITUTE(COALESCE(fato_ordens[Item], ""), dq, "'")
+        VAR TipoItemTxt = SUBSTITUTE(COALESCE(fato_ordens[TipoItem], "SEM TIPO CADASTRADO"), dq, "'")
+        VAR DescricaoTxt = SUBSTITUTE(SUBSTITUTE(COALESCE(fato_ordens[DescricaoItem], ""), dq, "'"), UNICHAR(10), " ")
+        VAR MoldeTxt = SUBSTITUTE(COALESCE(fato_ordens[MoldeSugerido], ""), dq, "'")
+        VAR StatusTxt = SUBSTITUTE(COALESCE(fato_ordens[StatusOrdem], ""), dq, "'")
+        RETURN
+            "{" &
+            dq & "o" & dq & ":" & dq & OrdemTxt & dq & "," &
+            dq & "s" & dq & ":" & dq & SetorTxt & dq & "," &
+            dq & "m" & dq & ":" & dq & MaquinaTxt & dq & "," &
+            dq & "i" & dq & ":" & dq & ItemTxt & dq & "," &
+            dq & "it" & dq & ":" & dq & TipoItemTxt & dq & "," &
+            dq & "id" & dq & ":" & dq & DescricaoTxt & dq & "," &
+            dq & "md" & dq & ":" & dq & MoldeTxt & dq & "," &
+            dq & "os" & dq & ":" & dq & StatusTxt & dq & "," &
+            dq & "dv" & dq & ":" & dq & TipoDivergencia & dq & "," &
+            dq & "pl" & dq & ":" & FORMAT(COALESCE(QtdPlanejada, 0), "0.############", "en-US") & "," &
+            dq & "sys" & dq & ":" & FORMAT(COALESCE(QtdSistema, 0), "0.############", "en-US") & "," &
+            dq & "off" & dq & ":" & FORMAT(COALESCE(QtdOficial, 0), "0.############", "en-US") &
+            "}",
+        ","
+    ) &
+    "]"
+
+// --------------------------------------------------------------------------
+// JSON: capacidade e calendario
+// --------------------------------------------------------------------------
+VAR TabelaCapacidade =
+    SUMMARIZE(
+        fato_disponibilidade,
+        fato_disponibilidade[Setor],
+        fato_disponibilidade[Maquina],
+        fato_disponibilidade[Turno],
+        fato_disponibilidade[StatusRecurso],
+        "HorasDisponiveis", SUM(fato_disponibilidade[HorasTotais]),
+        "HorasProdutivas", SUM(fato_disponibilidade[HorasTrabalhadasReais]),
+        "HorasParadas", SUM(fato_disponibilidade[HorasParadas]),
+        "HorasSetup", SUM(fato_disponibilidade[HorasSetup]),
+        "Capacidade", SUM(fato_disponibilidade[CapacidadePecas])
+    )
+VAR JsonCapacidade =
+    "[" &
+    CONCATENATEX(
+        TabelaCapacidade,
+        "{" &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Setor], ""), dq, "'") & dq & "," &
+        dq & "m" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Maquina], ""), dq, "'") & dq & "," &
+        dq & "t" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Turno], ""), dq, "'") & dq & "," &
+        dq & "rs" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[StatusRecurso], ""), dq, "'") & dq & "," &
+        dq & "hd" & dq & ":" & FORMAT(COALESCE([HorasDisponiveis], 0), "0.############", "en-US") & "," &
+        dq & "hp" & dq & ":" & FORMAT(COALESCE([HorasProdutivas], 0), "0.############", "en-US") & "," &
+        dq & "hstop" & dq & ":" & FORMAT(COALESCE([HorasParadas], 0), "0.############", "en-US") & "," &
+        dq & "hsu" & dq & ":" & FORMAT(COALESCE([HorasSetup], 0), "0.############", "en-US") & "," &
+        dq & "cap" & dq & ":" & FORMAT(COALESCE([Capacidade], 0), "0.############", "en-US") &
+        "}",
+        ","
+    ) &
+    "]"
+
+VAR TabelaCalendarioDiario =
+    SUMMARIZE(
+        fato_disponibilidade,
+        fato_disponibilidade[Data],
+        fato_disponibilidade[Setor],
+        "HorasDisponiveis", SUM(fato_disponibilidade[HorasTotais]),
+        "HorasProdutivas", SUM(fato_disponibilidade[HorasTrabalhadasReais]),
+        "HorasParadas", SUM(fato_disponibilidade[HorasParadas]),
+        "HorasSetup", SUM(fato_disponibilidade[HorasSetup]),
+        "Capacidade", SUM(fato_disponibilidade[CapacidadePecas])
+    )
+VAR JsonCalendarioDiario =
+    "[" &
+    CONCATENATEX(
+        TabelaCalendarioDiario,
+        "{" &
+        dq & "d" & dq & ":" & dq & FORMAT(fato_disponibilidade[Data], "yyyy-MM-dd") & dq & "," &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Setor], ""), dq, "'") & dq & "," &
+        dq & "hd" & dq & ":" & FORMAT(COALESCE([HorasDisponiveis], 0), "0.############", "en-US") & "," &
+        dq & "hp" & dq & ":" & FORMAT(COALESCE([HorasProdutivas], 0), "0.############", "en-US") & "," &
+        dq & "hstop" & dq & ":" & FORMAT(COALESCE([HorasParadas], 0), "0.############", "en-US") & "," &
+        dq & "hsu" & dq & ":" & FORMAT(COALESCE([HorasSetup], 0), "0.############", "en-US") & "," &
+        dq & "cap" & dq & ":" & FORMAT(COALESCE([Capacidade], 0), "0.############", "en-US") &
+        "}",
+        ","
+    ) &
+    "]"
+
+VAR TabelaTurnosRecursos =
+    SUMMARIZE(
+        fato_disponibilidade,
+        fato_disponibilidade[Setor],
+        fato_disponibilidade[Maquina],
+        fato_disponibilidade[Matricula],
+        fato_disponibilidade[Turno],
+        fato_disponibilidade[Trabalha],
+        "HorasProdutivas", SUM(fato_disponibilidade[HorasTrabalhadasReais])
+    )
+VAR JsonTurnosRecursos =
+    "[" &
+    CONCATENATEX(
+        FILTER(TabelaTurnosRecursos, [HorasProdutivas] > 0),
+        VAR MatriculaAtual = fato_disponibilidade[Matricula]
+        VAR NomePessoa =
+            LOOKUPVALUE(
+                dim_funcionario[Nome],
+                dim_funcionario[Matricula], MatriculaAtual
+            )
+        VAR Recurso =
+            IF(
+                NOT ISBLANK(fato_disponibilidade[Maquina]),
+                fato_disponibilidade[Maquina],
+                COALESCE(NomePessoa, MatriculaAtual, "SEM RECURSO")
+            )
+        VAR TipoRecurso = IF(NOT ISBLANK(fato_disponibilidade[Maquina]), "MAQUINA", "PESSOA")
+        RETURN
+            "{" &
+            dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Setor], ""), dq, "'") & dq & "," &
+            dq & "r" & dq & ":" & dq & SUBSTITUTE(Recurso, dq, "'") & dq & "," &
+            dq & "rt" & dq & ":" & dq & TipoRecurso & dq & "," &
+            dq & "t" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Turno], ""), dq, "'") & dq & "," &
+            dq & "work" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_disponibilidade[Trabalha], ""), dq, "'") & dq & "," &
+            dq & "h" & dq & ":" & FORMAT(COALESCE([HorasProdutivas], 0), "0.############", "en-US") &
+            "}",
+        ","
+    ) &
+    "]"
+
+// --------------------------------------------------------------------------
+// JSON: manutencao consolidada por ordem
+// --------------------------------------------------------------------------
+VAR TabelaManutencaoCompacta =
+    TOPN(
+        500,
+        fato_manutencao_ordem,
+        fato_manutencao_ordem[Data], DESC,
+        fato_manutencao_ordem[HorasParada], DESC
+    )
+VAR JsonManutencao =
+    "[" &
+    CONCATENATEX(
+        TabelaManutencaoCompacta,
+        "{" &
+        dq & "d" & dq & ":" & dq & IF(ISBLANK(fato_manutencao_ordem[Data]), "", FORMAT(fato_manutencao_ordem[Data], "yyyy-MM-dd")) & dq & "," &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_manutencao_ordem[Setor], ""), dq, "'") & dq & "," &
+        dq & "m" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_manutencao_ordem[Maquina], ""), dq, "'") & dq & "," &
+        dq & "mt" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_manutencao_ordem[ClasseManutencao], ""), dq, "'") & dq & "," &
+        dq & "mtd" & dq & ":" & dq & SUBSTITUTE(SUBSTITUTE(COALESCE(fato_manutencao_ordem[TipoManutencao], ""), dq, "'"), UNICHAR(10), " ") & dq & "," &
+        dq & "sym" & dq & ":" & dq & SUBSTITUTE(SUBSTITUTE(COALESCE(fato_manutencao_ordem[Sintoma], ""), dq, "'"), UNICHAR(10), " ") & dq & "," &
+        dq & "om" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_manutencao_ordem[OrdemManutencao], ""), dq, "'") & dq & "," &
+        dq & "h" & dq & ":" & FORMAT(COALESCE(fato_manutencao_ordem[HorasParada], 0), "0.############", "en-US") & "," &
+        dq & "resp" & dq & ":" & FORMAT(COALESCE(fato_manutencao_ordem[HorasResposta], 0), "0.############", "en-US") & "," &
+        dq & "exec" & dq & ":" & FORMAT(COALESCE(fato_manutencao_ordem[HorasExecucao], 0), "0.############", "en-US") &
+        "}",
+        ","
+    ) &
+    "]"
+
+// --------------------------------------------------------------------------
+// JSON: producao atribuida a pessoas e grupos
+// --------------------------------------------------------------------------
+VAR TabelaPessoasCompacta =
+    SUMMARIZE(
+        fato_producao_pessoa,
+        fato_producao_pessoa[Data],
+        fato_producao_pessoa[Setor],
+        fato_producao_pessoa[Maquina],
+        fato_producao_pessoa[Turno],
+        fato_producao_pessoa[Item],
+        fato_producao_pessoa[TipoItem],
+        fato_producao_pessoa[Grupo],
+        fato_producao_pessoa[Matricula],
+        fato_producao_pessoa[TipoAtribuicao],
+        fato_producao_pessoa[MetaPessoaPecasHora],
+        "QtdAtribuida", SUM(fato_producao_pessoa[QuantidadeAtribuida]),
+        "HorasAtribuidas", SUM(fato_producao_pessoa[DuracaoAtribuida]),
+        "MetaAtribuida", SUM(fato_producao_pessoa[MetaPecasAtribuida])
+    )
+VAR JsonPessoas =
+    "[" &
+    CONCATENATEX(
+        TabelaPessoasCompacta,
+        VAR NomePessoa = COALESCE(
+            LOOKUPVALUE(
+                dim_funcionario[Nome],
+                dim_funcionario[Matricula], fato_producao_pessoa[Matricula]
+            ),
+            fato_producao_pessoa[Matricula],
+            ""
+        )
+        RETURN
+            "{" &
+            dq & "d" & dq & ":" & dq & FORMAT(fato_producao_pessoa[Data], "yyyy-MM-dd") & dq & "," &
+            dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Setor], ""), dq, "'") & dq & "," &
+            dq & "m" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Maquina], ""), dq, "'") & dq & "," &
+            dq & "t" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Turno], ""), dq, "'") & dq & "," &
+            dq & "i" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Item], ""), dq, "'") & dq & "," &
+            dq & "it" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[TipoItem], "SEM TIPO CADASTRADO"), dq, "'") & dq & "," &
+            dq & "g" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Grupo], ""), dq, "'") & dq & "," &
+            dq & "e" & dq & ":" & dq & SUBSTITUTE(NomePessoa, dq, "'") & dq & "," &
+            dq & "at" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[TipoAtribuicao], ""), dq, "'") & dq & "," &
+            dq & "ph" & dq & ":" & FORMAT(COALESCE(fato_producao_pessoa[MetaPessoaPecasHora], 0), "0.############", "en-US") & "," &
+            dq & "q" & dq & ":" & FORMAT(COALESCE([QtdAtribuida], 0), "0.############", "en-US") & "," &
+            dq & "h" & dq & ":" & FORMAT(COALESCE([HorasAtribuidas], 0), "0.############", "en-US") & "," &
+            dq & "meta" & dq & ":" & FORMAT(COALESCE([MetaAtribuida], 0), "0.############", "en-US") &
+            "}",
+        ","
+    ) &
+    "]"
+
+VAR TabelaGruposDiarios =
+    SUMMARIZE(
+        FILTER(fato_producao_pessoa, fato_producao_pessoa[TipoAtribuicao] = "RATEIO_GRUPO"),
+        fato_producao_pessoa[Data],
+        fato_producao_pessoa[Setor],
+        fato_producao_pessoa[Grupo],
+        fato_producao_pessoa[Matricula],
+        "QtdAtribuidaDia", SUM(fato_producao_pessoa[QuantidadeAtribuida]),
+        "MetaAtribuidaDia", SUM(fato_producao_pessoa[MetaPecasAtribuida])
+    )
+VAR JsonGruposDiarios =
+    "[" &
+    CONCATENATEX(
+        TabelaGruposDiarios,
+        VAR NomePessoa = COALESCE(
+            LOOKUPVALUE(
+                dim_funcionario[Nome],
+                dim_funcionario[Matricula], fato_producao_pessoa[Matricula]
+            ),
+            fato_producao_pessoa[Matricula],
+            ""
+        )
+        RETURN
+            "{" &
+            dq & "d" & dq & ":" & dq & FORMAT(fato_producao_pessoa[Data], "yyyy-MM-dd") & dq & "," &
+            dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Setor], ""), dq, "'") & dq & "," &
+            dq & "g" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_producao_pessoa[Grupo], ""), dq, "'") & dq & "," &
+            dq & "e" & dq & ":" & dq & SUBSTITUTE(NomePessoa, dq, "'") & dq & "," &
+            dq & "q" & dq & ":" & FORMAT(COALESCE([QtdAtribuidaDia], 0), "0.############", "en-US") & "," &
+            dq & "meta" & dq & ":" & FORMAT(COALESCE([MetaAtribuidaDia], 0), "0.############", "en-US") &
+            "}",
+        ","
+    ) &
+    "]"
+
+VAR JsonAusencias =
+    "[" &
+    CONCATENATEX(
+        fato_ausencias,
+        VAR NomePessoa = COALESCE(RELATED(dim_funcionario[Nome]), fato_ausencias[Matricula], "")
+        RETURN
+            "{" &
+            dq & "d" & dq & ":" & dq & FORMAT(fato_ausencias[Data], "yyyy-MM-dd") & dq & "," &
+            dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_ausencias[Setor], ""), dq, "'") & dq & "," &
+            dq & "t" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_ausencias[Turno], ""), dq, "'") & dq & "," &
+            dq & "e" & dq & ":" & dq & SUBSTITUTE(NomePessoa, dq, "'") & dq & "," &
+            dq & "h" & dq & ":" & IF(ISBLANK(fato_ausencias[HorasAusentes]), "null", FORMAT(fato_ausencias[HorasAusentes], "0.############", "en-US")) &
+            "}",
+        ","
+    ) &
+    "]"
+
+// --------------------------------------------------------------------------
+// JSON: alertas
+// --------------------------------------------------------------------------
+VAR TabelaAlertasCompacta =
+    TOPN(
+        300,
+        fato_alertas,
+        fato_alertas[Data], DESC,
+        fato_alertas[TipoAlerta], ASC
+    )
+VAR JsonAlertas =
+    "[" &
+    CONCATENATEX(
+        TabelaAlertasCompacta,
+        "{" &
+        dq & "d" & dq & ":" & dq & IF(ISBLANK(fato_alertas[Data]), "", FORMAT(fato_alertas[Data], "yyyy-MM-dd")) & dq & "," &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Setor], ""), dq, "'") & dq & "," &
+        dq & "m" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Maquina], ""), dq, "'") & dq & "," &
+        dq & "o" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Ordem], ""), dq, "'") & dq & "," &
+        dq & "i" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Item], ""), dq, "'") & dq & "," &
+        dq & "typ" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[TipoAlerta], ""), dq, "'") & dq & "," &
+        dq & "sev" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Severidade], "ATENCAO"), dq, "'") & dq & "," &
+        dq & "base" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[BaseAfetada], ""), dq, "'") & dq & "," &
+        dq & "col" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_alertas[Coluna], ""), dq, "'") & dq & "," &
+        dq & "act" & dq & ":" & dq & SUBSTITUTE(SUBSTITUTE(COALESCE(fato_alertas[AcaoRecomendada], ""), dq, "'"), UNICHAR(10), " ") & dq &
+        "}",
+        ","
+    ) &
+    "]"
+
+
+// --------------------------------------------------------------------------
+// JSON: resumo analise e historico mensal
+// --------------------------------------------------------------------------
+VAR JsonResumoAnalise =
+    "[" &
+    CONCATENATEX(
+        fato_resumo_analise,
+        "{" &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_resumo_analise[Setor], ""), dq, "'") & dq & "," &
+        dq & "m" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_resumo_analise[Maquina], ""), dq, "'") & dq & "," &
+        dq & "hd" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[HorasDisponiveis], 0), "0.############", "en-US") & "," &
+        dq & "hn" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[HorasNecessarias], 0), "0.############", "en-US") & "," &
+        dq & "cap" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[Capacidade], 0), "0.############", "en-US") & "," &
+        dq & "pl" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[QtdePlanejada], 0), "0.############", "en-US") & "," &
+        dq & "prod" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[QtdeProduzidaResumo], 0), "0.############", "en-US") & "," &
+        dq & "saldo" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[Saldo], 0), "0.############", "en-US") & "," &
+        dq & "pct" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[PercentualProduzido], 0), "0.############", "en-US") & "," &
+        dq & "hidle" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[HorasOciosas], 0), "0.############", "en-US") & "," &
+        dq & "pidle" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[OciosidadePecas], 0), "0.############", "en-US") & "," &
+        dq & "ocup" & dq & ":" & FORMAT(COALESCE(fato_resumo_analise[OcupacaoPercentual], 0), "0.############", "en-US") & "," &
+        dq & "rs" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_resumo_analise[StatusRecurso], ""), dq, "'") & dq &
+        "}",
+        ","
+    ) &
+    "]"
+
+VAR JsonMensal =
+    "[" &
+    CONCATENATEX(
+        fato_dados_mensais,
+        "{" &
+        dq & "d" & dq & ":" & dq & FORMAT(fato_dados_mensais[DataMes], "yyyy-MM-dd") & dq & "," &
+        dq & "mo" & dq & ":" & dq & FORMAT(fato_dados_mensais[DataMes], "yyyy-MM") & dq & "," &
+        dq & "lab" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_dados_mensais[MesNome], ""), dq, "'") & dq & "," &
+        dq & "s" & dq & ":" & dq & SUBSTITUTE(COALESCE(fato_dados_mensais[Setor], ""), dq, "'") & dq & "," &
+        dq & "hp" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[HorasProdutivas], 0), "0.############", "en-US") & "," &
+        dq & "he" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[HorasExtras], 0), "0.############", "en-US") & "," &
+        dq & "ht" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[HorasTotais], 0), "0.############", "en-US") & "," &
+        dq & "func" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[QtdFuncionarios], 0), "0.############", "en-US") & "," &
+        dq & "pl" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[QtdePlanejada], 0), "0.############", "en-US") & "," &
+        dq & "prod" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[QtdeProduzida], 0), "0.############", "en-US") & "," &
+        dq & "np" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[QtdeNaoProduzida], 0), "0.############", "en-US") & "," &
+        dq & "pct" & dq & ":" & FORMAT(COALESCE(fato_dados_mensais[PercentualProduzido], 0), "0.############", "en-US") &
+        "}",
+        ",",
+        fato_dados_mensais[DataMes], ASC
+    ) &
+    "]"
+
+VAR JsonDados =
+    "{" &
+    dq & "p" & dq & ":" & JsonProducao & "," &
+    dq & "o" & dq & ":" & JsonOrdens & "," &
+    dq & "c" & dq & ":" & JsonCapacidade & "," &
+    dq & "r" & dq & ":[]," &
+    dq & "ms" & dq & ":" & JsonMensal & "," &
+    dq & "cd" & dq & ":" & JsonCalendarioDiario & "," &
+    dq & "tr" & dq & ":" & JsonTurnosRecursos & "," &
+    dq & "m" & dq & ":" & JsonManutencao & "," &
+    dq & "g" & dq & ":[]," &
+    dq & "gd" & dq & ":[]," &
+    dq & "u" & dq & ":[]," &
+    dq & "a" & dq & ":" & JsonAlertas & "," &
+    dq & "meta" & dq & ":{" &
+        dq & "updated" & dq & ":" & dq & FORMAT([Ultima Atualizacao], "yyyy-MM-dd HH:mm") & dq & "," &
+        dq & "prodRows" & dq & ":" & FORMAT([Qtd Registros Producao], "0", "en-US") & "," &
+        dq & "orderRows" & dq & ":" & FORMAT([Qtd Registros Ordens], "0", "en-US") & "," &
+        dq & "maintRows" & dq & ":" & FORMAT([Qtd Registros Manutencao], "0", "en-US") & "," &
+        dq & "groupRows" & dq & ":" & FORMAT([Qtd Registros Grupos], "0", "en-US") & "," &
+        dq & "qOff" & dq & ":" & FORMAT(COALESCE([Qtd Produzida Real], 0), "0.############", "en-US") & "," &
+        dq & "qSys" & dq & ":" & FORMAT(COALESCE([Qtd Produzida Sistema], 0), "0.############", "en-US") & "," &
+        dq & "plan" & dq & ":" & FORMAT(COALESCE([Qtd Planejada Planejamento Mensal], 0), "0.############", "en-US") & "," &
+        dq & "hExec" & dq & ":" & FORMAT(COALESCE([Horas Executadas], 0), "0.############", "en-US") & "," &
+        dq & "hAvail" & dq & ":" & FORMAT(COALESCE([Horas Disponiveis], 0), "0.############", "en-US") & "," &
+        dq & "hProd" & dq & ":" & FORMAT(COALESCE([Horas Produtivas], 0), "0.############", "en-US") & "," &
+        dq & "hMaint" & dq & ":" & FORMAT(COALESCE([Horas Parada Manutencao], 0), "0.############", "en-US") & "," &
+        dq & "hSetup" & dq & ":" & FORMAT(COALESCE([Horas Setup], 0), "0.############", "en-US") & "," &
+        dq & "capacity" & dq & ":" & FORMAT(COALESCE([Capacidade Pecas], 0), "0.############", "en-US") & "," &
+        dq & "people" & dq & ":" & FORMAT(COALESCE([Qtd Pessoas Trabalhando], 0), "0", "en-US") & "," &
+        dq & "personQ" & dq & ":" & FORMAT(COALESCE([Qtd Produzida Pessoa], 0), "0.############", "en-US") & "," &
+        dq & "personMeta" & dq & ":" & FORMAT(COALESCE([Meta Pessoa], 0), "0.############", "en-US") & "," &
+        dq & "alerts" & dq & ":" & FORMAT(COALESCE([Qtd Alertas Cadastro], 0), "0", "en-US") & "," &
+        dq & "maintCount" & dq & ":" & FORMAT(COALESCE([Qtd Ordens Manutencao], 0), "0", "en-US") & "," &
+        dq & "hoursAbsent" & dq & ":" & FORMAT(COALESCE([Horas Ausentes], 0), "0.############", "en-US") & "," &
+        dq & "hoursIdle" & dq & ":" & FORMAT(COALESCE([Horas Ociosas Operacionais], 0), "0.############", "en-US") & "," &
+        dq & "execHoursPct" & dq & ":" & FORMAT(COALESCE([% Execucao Horas Disponiveis], 0), "0.############", "en-US") & "," &
+        dq & "idlePct" & dq & ":" & FORMAT(COALESCE([% Ociosidade Operacional], 0), "0.############", "en-US") & "," &
+        dq & "idlePieces" & dq & ":" & FORMAT(COALESCE([Ociosidade Pecas], 0), "0.############", "en-US") & "," &
+        dq & "refugo" & dq & ":false" &
+    "}}"
+
+// --------------------------------------------------------------------------
+// CSS
+// --------------------------------------------------------------------------
+VAR Css =
+"<style>
+:root{--yellow:#FFCC00;--red:#ED1C24;--ink:#F2F2F2;--dark:#202124;--panel:#303030;--page:#262626;--line:#4D4D4F;--muted:#B1B3B6;--green:#34A853;--cyan:#9E9EA2;--orange:#FF9F1C;--blue:#B1B3B6;--violet:#87897B}
+*{box-sizing:border-box}html,body{margin:0;background:var(--page);color:var(--ink);font-family:Oxygen,'Segoe UI',Arial,sans-serif;letter-spacing:0}button,input,select{font:inherit}body{color-scheme:dark}
+.app{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr);background:var(--page)}.app.collapsed{grid-template-columns:64px minmax(0,1fr)}
+.side{position:sticky;top:0;height:100vh;background:#202020;color:#fff;border-right:1px solid #3d3d3f;overflow:hidden;z-index:3}.brand{height:68px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid #3d3d3f}.mark{width:32px;height:32px;background:var(--yellow);color:#111;display:grid;place-items:center;font:900 15px 'Arial Black',Arial;border-radius:4px}.brandText{font:800 15px 'Arial Black','Segoe UI Semibold',Arial;white-space:nowrap}.brandText small{display:block;font:500 10px Oxygen,Arial;color:#B9BEC3;margin-top:3px}
+.nav{padding:10px 8px;display:grid;gap:4px}.nav button{height:40px;border:0;border-left:3px solid transparent;background:transparent;color:#d5d5d5;text-align:left;padding:0 11px;cursor:pointer;white-space:nowrap}.nav button:hover{background:#2c2c2e;color:#fff}.nav button.active{border-left-color:var(--yellow);background:#303032;color:var(--yellow);font-weight:700}.nav b{display:inline-grid;width:25px;color:inherit}.collapsed .brandText,.collapsed .nav span{display:none}.collapsed .nav button{padding-left:10px}
+.shell{min-width:0}.top{min-height:68px;display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid #3d3d3f;background:#202020;color:#fff;position:sticky;top:0;z-index:2}.iconBtn{width:38px;height:38px;border:1px solid #505054;background:#29292b;color:#fff;border-radius:4px;cursor:pointer}.iconBtn:hover{border-color:var(--yellow);color:var(--yellow)}.pageTitle{font:800 18px 'Arial Black','Segoe UI Semibold',Arial;margin-right:auto;color:#fff}.stamp{font-size:11px;color:#B9BEC3}
+.filters{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:8px;padding:12px 18px;background:#202124;border-bottom:1px solid var(--line)}.filters.closed{display:none}.filter label{display:block;font-size:10px;color:#B1B3B6;text-transform:uppercase;margin:0 0 4px;font-weight:700}.filterControl{width:100%;height:34px;background:#2F3032;color:#F2F2F2;border:1px solid #AEB5BC;border-radius:4px;padding:0 8px;min-width:0}.filterControl:focus{outline:2px solid rgba(255,204,0,.55);border-color:#8A6C00}.filterActions{display:none}.filterActions button{width:100%;height:34px;border:1px solid #8A6C00;background:#303030;color:#FFCC00;border-radius:4px;font-weight:700}
+.content{padding:18px;min-width:0}.kpis{display:grid;grid-template-columns:repeat(6,minmax(140px,1fr));gap:10px;margin-bottom:16px}.kpi{background:#303030;color:var(--ink);border:1px solid var(--line);border-top:4px solid var(--accent,var(--yellow));border-radius:6px;padding:12px;min-height:96px;box-shadow:0 1px 2px rgba(0,0,0,.05);min-width:0}.kpi .label{font-size:11px;text-transform:uppercase;color:#B1B3B6;line-height:1.3;font-weight:700}.kpi .value{font:800 21px 'Arial Black','Segoe UI Semibold',Arial;margin-top:8px;color:#F2F2F2;white-space:nowrap;overflow:hidden;text-overflow:clip}.kpi .note{font-size:10px;color:#B1B3B6;margin-top:5px;min-height:13px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;margin-bottom:16px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}.panel{background:#303030;color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:16px;min-width:0;box-shadow:0 14px 24px rgba(0,0,0,.28);margin-bottom:16px}.content>section.panel+section.panel{margin-top:0}.panel h3{font:700 15px 'Segoe UI Semibold',Arial;margin:0 0 14px;color:#F2F2F2}.panel h3 em{font-style:normal;color:#7A5D00}
+.gaugeWrap{display:flex;align-items:center;gap:22px}.gauge{--v:0deg;width:140px;aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--yellow) var(--v),#DDE1E5 0);display:grid;place-items:center;position:relative;flex:0 0 auto}.gauge:before{content:'';position:absolute;width:104px;aspect-ratio:1;background:#303030;border-radius:50%}.gauge strong{position:relative;font:800 23px 'Arial Black',Arial;color:#F2F2F2}.gaugeLegend{display:grid;gap:8px;font-size:12px;color:#B1B3B6}.gaugeLegend b{color:#F2F2F2}
+.bars{display:grid;gap:10px}.barRow{display:grid;grid-template-columns:minmax(120px,1.2fr) 3fr 90px;gap:8px;align-items:center;font-size:13px;color:#F2F2F2}.barRow.wrap{grid-template-columns:minmax(220px,1.6fr) 2fr 85px;align-items:start}.barLabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#F2F2F2}.barRow.wrap .barLabel{overflow:visible;white-space:normal;line-height:1.35}.track{height:12px;background:#4D4D4F;border-radius:3px;overflow:hidden}.fill{height:100%;background:var(--yellow)}.barValue{text-align:right;color:#F2F2F2;font-weight:700}
+.tableWrap{overflow:auto;max-height:440px;border:1px solid var(--line);border-radius:4px}.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th{position:sticky;top:0;background:#303236;color:#FFDA3A;text-align:left;padding:9px 8px;border-bottom:1px solid #1F2022;white-space:nowrap}.tbl td{padding:8px;border-bottom:1px solid #4D4D4F;color:#F2F2F2;vertical-align:middle;background:#303030}.tbl tr:hover td{background:#38383A}.num{text-align:right!important;font-variant-numeric:tabular-nums}.badge{display:inline-block;padding:3px 6px;border-radius:3px;background:#565B62;color:#fff;font-size:10px;font-weight:700}.badge.ok{background:#137351}.badge.warn{background:#9B7100}.badge.bad{background:#A9232A}.badge.info{background:#146C86}
+.donutWrap{display:flex;align-items:center;justify-content:center;gap:24px;min-height:210px}.donut{--a:0deg;--b:0deg;width:168px;aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--green) 0 var(--a),var(--yellow) var(--a) var(--b),#DDE1E5 var(--b));display:grid;place-items:center;position:relative;flex:0 0 auto}.donut:before{content:'';position:absolute;width:106px;aspect-ratio:1;background:#303030;border-radius:50%}.donut strong{position:relative;font:800 18px 'Arial Black',Arial;color:#F2F2F2;max-width:86px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:clip}.legend{display:grid;gap:8px;font-size:12px;color:#B1B3B6}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+.columns{height:250px;display:flex;align-items:flex-end;gap:10px;padding:26px 4px 0;border-bottom:1px solid #B9C0C7}.colItem{height:100%;min-width:58px;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px}.colBars{height:174px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:4px}.colBar{width:min(22px,42%);min-height:2px;background:var(--yellow);border-radius:2px 2px 0 0}.colBar.alt{background:var(--blue)}.colLabel{font-size:12px;max-width:98px;text-align:center;white-space:normal;line-height:1.2;color:#F2F2F2}.colValue{font-size:12px;color:#F2F2F2;font-weight:800;background:#4D4D4F;border-radius:5px;padding:2px 6px}
+.lineChart{width:100%;height:220px;display:block}.lineGrid{stroke:#4D4D4F;stroke-width:1}.linePath{fill:none;stroke:#B1B3B6;stroke-width:3}.linePoint{fill:#fff;stroke:#B1B3B6;stroke-width:2}.performance{display:grid;gap:1px;background:#4D4D4F;border:1px solid #4D4D4F;border-radius:4px;overflow:hidden}.perfRow{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(70px,.7fr) 78px 108px;gap:8px;align-items:center;background:#303030;padding:9px 10px;font-size:13px;color:#F2F2F2}.perfRow.head{background:#303236;color:#FFDA3A;font-weight:700;position:sticky;top:0;z-index:1}.perfName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.perfTrack{height:13px;background:#4D4D4F;border-radius:3px;overflow:hidden}.perfFill{height:100%;background:var(--green);max-width:100%}.perfPct,.perfQty{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}.groupDaily{width:100%;border-collapse:collapse;font-size:13px}.groupDaily th{position:sticky;top:0;z-index:2;background:#303236;color:#FFDA3A;text-align:left;padding:10px}.groupDaily td{background:#303030;color:#F2F2F2;border-bottom:1px solid #4D4D4F;padding:10px;vertical-align:top}.memberList{display:flex;flex-wrap:wrap;gap:10px 18px}.memberPerf{display:grid;grid-template-columns:50px minmax(110px,1fr);gap:8px;align-items:center;min-width:190px}.miniGauge{--v:0deg;width:48px;aspect-ratio:1;border-radius:50%;background:conic-gradient(var(--green) var(--v),#DDE1E5 0);display:grid;place-items:center;position:relative}.miniGauge:before{content:'';position:absolute;width:35px;aspect-ratio:1;border-radius:50%;background:#303030}.miniGauge strong{position:relative;font-size:10px;color:#F2F2F2}.memberPerf b{display:block;font-size:12px;color:#F2F2F2}.memberPerf small{display:block;color:#B1B3B6}.calendarTitle{margin-top:18px!important;text-transform:capitalize}.calendarTitle:first-child{margin-top:0!important}.calendar{display:grid;grid-template-columns:repeat(7,minmax(42px,1fr));gap:5px;margin-bottom:18px}.calHead{text-align:center;font-size:12px;font-weight:700;color:#B1B3B6;padding:5px}.calDay{min-height:74px;border:1px solid #4D4D4F;border-top:4px solid var(--cal,#AEB5BC);border-radius:4px;padding:6px;background:#303030;color:#F2F2F2}.calDay.emptyDay{border-color:transparent;background:transparent}.calDay.mutedDay{background:#38383A;color:#B1B3B6;border-top-color:#4D4D4F}.calNum{font-weight:800;font-size:13px}.calMetric{font-size:11px;color:#B1B3B6;margin-top:8px}.turnGrid{display:grid;grid-template-columns:minmax(170px,1.6fr) 80px 80px 80px 80px;gap:1px;background:#4D4D4F;border:1px solid #4D4D4F;font-size:12px}.turnGrid div{background:#303030;color:#F2F2F2;padding:8px}.turnGrid .th{background:#303236;color:#FFDA3A;font-weight:700}.turnGrid .hours{text-align:center;font-weight:700}.empty{min-height:240px;display:grid;place-items:center;text-align:center;color:#B1B3B6;padding:30px}.empty strong{display:block;color:#F2F2F2;font:800 20px 'Arial Black',Arial;margin-bottom:8px}.audit{display:grid;grid-template-columns:220px 1fr;gap:8px;font-size:13px}.audit dt{color:#B1B3B6}.audit dd{margin:0;color:#F2F2F2}.statusLine{height:5px;background:#4D4D4F;margin-top:10px}.statusLine span{display:block;height:100%;background:var(--green)}
+.comboChart,.rankChart{overflow:visible}.comboScroll{overflow-x:auto;padding:0 0 8px}.comboInner{min-width:720px;height:285px;display:grid;grid-template-columns:48px repeat(var(--n),minmax(108px,1fr)) 48px;align-items:end;gap:10px}.axisLabel{align-self:stretch;display:flex;flex-direction:column;justify-content:space-between;color:#F2F2F2;font-size:13px}.comboCol{height:228px;display:flex;align-items:flex-end;justify-content:center;gap:8px;border-bottom:1px solid #636466;position:relative;padding-top:54px}.barA,.barB{width:30px;border-radius:7px 7px 0 0;min-height:2px;position:relative}.barA{background:#FFCC00}.barB{background:#636466}.barData{position:absolute;left:50%;top:-22px;transform:translateX(-50%);background:#4D4D4F;color:#F2F2F2;border-radius:5px;padding:2px 7px;font-weight:800;font-size:12px;white-space:nowrap}.comboPct{position:absolute;left:50%;top:10px;bottom:auto;transform:translateX(-50%);background:#59595B;color:#F2F2F2;border-radius:5px;padding:4px 8px;font-weight:800;font-size:12px;z-index:4;white-space:nowrap}.comboX{text-align:center;font-size:13px;line-height:1.25;color:#F2F2F2;align-self:start}.premiumLegend{display:flex;gap:16px;justify-content:center;margin-top:10px;color:#F2F2F2;font-size:13px}.premiumLegend i{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:5px}.semiGauge{width:220px;max-width:100%;margin:auto;position:relative}.semiGauge svg{width:100%;display:block}.semiValue{position:absolute;left:6px;right:6px;bottom:26px;text-align:center;font-size:22px;line-height:1;color:#F2F2F2;white-space:nowrap;overflow:hidden;text-overflow:clip}.semiScale{display:flex;justify-content:space-between;color:#B1B3B6;font-size:12px;margin-top:-4px}.compareCard{background:#F2F2F2;color:#202124;border-radius:18px;padding:14px 20px;box-shadow:0 12px 22px rgba(0,0,0,.28);margin-bottom:12px}.compareTitle{text-align:center;font-weight:800;margin-bottom:8px}.compareGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.compareItem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.compareItem b{font-size:16px}.arrowUp{color:#202124}.arrowDown{color:#ED1C24}.scrollBars{overflow-x:auto}.scrollBars .columns{min-width:var(--rankw,900px)}.notice{padding:28px;text-align:center;color:#F2F2F2;background:#303030;border:1px solid #4D4D4F;border-radius:18px}.widePanel{grid-column:1/-1}
+@media(max-width:1200px){.filters{grid-template-columns:repeat(4,minmax(120px,1fr))}.kpis{grid-template-columns:repeat(3,minmax(140px,1fr))}}
+@media(max-width:820px){.app,.app.collapsed{grid-template-columns:64px minmax(0,1fr)}.brandText,.nav span{display:none}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis,.grid3{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:1fr}.stamp{display:none}.content{padding:10px}.barRow,.barRow.wrap{grid-template-columns:minmax(110px,1fr) 1fr 70px}.turnGrid{grid-template-columns:minmax(120px,1.5fr) repeat(4,55px)}.perfRow{grid-template-columns:minmax(130px,1.2fr) minmax(100px,2fr) 70px 90px}}
+@media(max-width:520px){.filters,.kpis,.grid3{grid-template-columns:1fr}.top{padding:8px 6px;gap:4px}.iconBtn{width:34px;height:34px}#filterBtn,#clearBtn{display:none}.filterActions{display:block}.pageTitle{font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gaugeWrap{align-items:flex-start;flex-direction:column}.perfRow{grid-template-columns:minmax(80px,1.1fr) minmax(55px,1fr) 55px 70px;gap:4px;padding:6px 5px;font-size:8px}.perfRow.head{white-space:normal}.memberPerf{min-width:170px}}
+</style>"
+
+// --------------------------------------------------------------------------
+// Estrutura
+// --------------------------------------------------------------------------
+VAR HtmlBase =
+"<html lang='pt-BR'><head><meta charset='UTF-8'></head><body>
+<div id='prodApp' class='app'>
+  <aside class='side'>
+    <div class='brand'><div class='mark'>A</div><div class='brandText'>AN&#193;LISE<small>CALEND&#193;RIO FABRIL</small></div></div>
+    <nav class='nav'>
+      <button class='active' data-page='critica'><b>01</b><span>An&#225;lise Cr&#237;tica</span></button>
+      <button data-page='capacidade'><b>02</b><span>Capacidade</span></button>
+      <button data-page='calendario'><b>03</b><span>Calend&#225;rio</span></button>
+      <button data-page='alertas'><b>04</b><span>Alertas</span></button>
+      <button data-page='auditoria'><b>05</b><span>Auditoria</span></button>
+    </nav>
+  </aside>
+  <section class='shell'>
+    <header class='top'>
+      <button id='menuBtn' class='iconBtn' title='Recolher menu'>&#9776;</button>
+      <div id='pageTitle' class='pageTitle'>Resumo Geral</div>
+      <div class='stamp'>Atualizado <span id='updated'></span></div>
+      <button id='filterBtn' class='iconBtn' title='Mostrar ou ocultar filtros'>&#9778;</button>
+      <button id='clearBtn' class='iconBtn' title='Limpar filtros'>&#8635;</button>
+    </header>
+    <div id='filters' class='filters'></div>
+    <main id='view' class='content'></main>
+  </section>
+</div></body></html>"
+
+// --------------------------------------------------------------------------
+// JavaScript: filtros locais, navegacao e renderizacao
+// --------------------------------------------------------------------------
+VAR Script =
+"<script>
+(()=>{
+const D=" & JsonDados & ";
+const app=document.getElementById('prodApp'),view=document.getElementById('view'),filtersEl=document.getElementById('filters');
+const nf=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}),n1=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:1});
+const pct=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'percent',maximumFractionDigits:1}).format(v):'-';
+const sum=(a,k)=>a.reduce((x,r)=>x+(Number(r[k])||0),0),uniq=(a,k)=>[...new Set(a.map(r=>r[k]).filter(Boolean))].sort((x,y)=>String(x).localeCompare(String(y),'pt-BR',{numeric:true}));
+const titles={critica:'Análise Crítica',capacidade:'Capacidade e Programação',calendario:'Calendário Fabril',alertas:'Alertas e Erros',auditoria:'Auditoria'};
+let page='critica',state={};
+const hasFilters=()=>Object.values(state).some(Boolean);
+const metric=(key,approx)=>hasFilters()?approx:Number(D.meta[key]??approx);
+
+// Completa dimensoes derivadas e a classificacao de divergencia nas producoes.
+const om=new Map(D.o.map(r=>[r.o,r]));
+D.p.forEach(r=>{const ord=om.get(r.o);r.mo=r.d?r.d.slice(0,7):'';r.dv=ord?ord.dv:(r.o?'SEM_ORDEM_CALENDARIO':'SEM_ORDEM');r.i=ord?ord.i:'';r.it=ord?ord.it:'';r.id=ord?ord.id:'';r.md=ord?ord.md:'';r.os=ord?ord.os:'';r.r=r.s==='M2'?(r.g||r.e||'M2 sem recurso'):r.m;r.pt='';});
+[D.cd,D.m,D.g,D.gd,D.u,D.a,D.ms].forEach(a=>a.forEach(r=>r.mo=r.mo||(r.d?r.d.slice(0,7):'')));
+
+const filterDefs=[
+ ['df','Data inicial','date'],['dt','Data final','date'],['mo','Mês','month'],['s','Setor'],['m','Máquina'],['t','Turno'],['o','Ordem'],['i','Item'],['it','Tipo do item'],['md','Molde'],['g','Grupo'],['e','Funcionário'],['os','Status ordem'],['rs','Status recurso'],['mt','Tipo manutenção'],['dv','Divergência']
+];
+const filterSources={mo:[...D.p,...D.cd,...D.m,...D.ms],s:[...D.p,...D.o,...D.c,...D.cd,...D.ms,...D.m],m:[...D.c,...D.m],t:[...D.p,...D.c,...D.tr],o:[...D.p,...D.o],i:[...D.p,...D.o],it:D.o,md:[...D.p,...D.o],g:[],e:[],os:[...D.p,...D.o],rs:D.c,mt:D.m,dv:[...D.p,...D.o]};
+function clearAll(){state={};filtersEl.querySelectorAll('.filterControl').forEach(s=>s.value='');render()}
+function buildFilters(){filtersEl.innerHTML=filterDefs.map(([k,l,type])=>{if(type)return `<div class='filter'><label>${l}</label><input class='filterControl' type='${type}' data-filter='${k}'></div>`;const vals=uniq(filterSources[k]||[],k),id=`list_${k}`;return `<div class='filter'><label>${l}</label><input class='filterControl' data-filter='${k}' list='${id}' placeholder='Digite para pesquisar'><datalist id='${id}'>${vals.map(v=>`<option value='${esc(v)}'></option>`).join('')}</datalist></div>`}).join('')+`<div class='filterActions'><button id='clearInside'>Limpar filtros</button></div>`;let timer;filtersEl.querySelectorAll('.filterControl').forEach(s=>s.addEventListener('input',()=>{state[s.dataset.filter]=s.value;clearTimeout(timer);timer=setTimeout(render,120)}));document.getElementById('clearInside').onclick=clearAll;}
+function match(r){if(state.df&&r.d&&r.d<state.df)return false;if(state.dt&&r.d&&r.d>state.dt)return false;return Object.entries(state).every(([k,v])=>{if(!v||k==='df'||k==='dt'||r[k]==null||r[k]==='')return true;return String(r[k]).toLocaleLowerCase('pt-BR').includes(String(v).toLocaleLowerCase('pt-BR'))})}
+const f=a=>a.filter(match),esc=s=>String(s??'').replace(/[&<>']/g,c=>c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':'&#39;');
+const badge=(v,type='')=>`<span class='badge ${type}'>${esc(v||'-')}</span>`;
+const kpi=(label,value,note='',color='var(--yellow)')=>`<div class='kpi' style='--accent:${color}'><div class='label'>${label}</div><div class='value'>${value}</div><div class='note'>${note}</div></div>`;
+function group(a,key,val='q'){const m=new Map();a.forEach(r=>{const x=r[key]||'Não informado',v=val===null?1:(Number(r[val])||0);m.set(x,(m.get(x)||0)+v)});return [...m].map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value)}
+function bars(data,limit=8,fmt=nf,wrap=false){const rows=data.slice(0,limit),max=Math.max(1,...rows.map(x=>x.value)),format=typeof fmt==='function'?fmt:v=>fmt.format(v);return `<div class='bars'>${rows.map(x=>`<div class='barRow ${wrap?'wrap':''}'><div class='barLabel' title='${esc(x.label)}'>${esc(x.label)}</div><div class='track'><div class='fill' style='width:${Math.max(1,x.value/max*100)}%'></div></div><div class='barValue'>${format(x.value)}</div></div>`).join('')}</div>`}
+function table(cols,rows){return `<div class='tableWrap'><table class='tbl'><thead><tr>${cols.map(c=>`<th class='${c.num?'num':''}'>${c.l}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class='${c.num?'num':''}'>${c.f?c.f(r):esc(r[c.k]??'-')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
+function efficiency(a,key){const m=new Map();a.forEach(r=>{const k=r[key]||'Não informado',x=m.get(k)||{q:0,meta:0};x.q+=Number(r.q)||0;x.meta+=Number(r.meta)||((Number(r.h)||0)*(Number(r.ph)||0));m.set(k,x)});return [...m].map(([label,x])=>({label,value:x.meta?x.q/x.meta:0,q:x.q,meta:x.meta})).sort((a,b)=>b.value-a.value)}
+function performanceRows(data,limit=25){const rows=data.slice(0,limit);return `<div class='performance'><div class='perfRow head'><div>Pessoa</div><div>Eficiência</div><div class='perfPct'>Percentual</div><div class='perfQty'>Qtd produzida</div></div>${rows.map(x=>`<div class='perfRow'><div class='perfName' title='${esc(x.label)}'>${esc(x.label)}</div><div class='perfTrack'><div class='perfFill' style='width:${Math.max(1,Math.min(100,x.value*100))}%'></div></div><div class='perfPct'>${pct(x.value)}</div><div class='perfQty'>${nf.format(x.q)}</div></div>`).join('')}</div>`}
+function groupDailyTable(rows){const map=new Map();rows.forEach(r=>{const k=`${r.d}|${r.g}`,x=map.get(k)||{d:r.d,g:r.g,s:r.s,q:0,meta:0,m:new Map()};x.q+=Number(r.q)||0;x.meta+=Number(r.meta)||0;const p=x.m.get(r.e)||{e:r.e,q:0};p.q+=Number(r.q)||0;x.m.set(r.e,p);map.set(k,x)});const out=[...map.values()].sort((a,b)=>b.d.localeCompare(a.d)||a.g.localeCompare(b.g,'pt-BR',{numeric:true}));return `<div class='tableWrap'><table class='groupDaily'><thead><tr><th>Data</th><th>Grupo</th><th>Eficiência do grupo</th><th>Componentes</th></tr></thead><tbody>${out.map(x=>{const rate=x.meta?x.q/x.meta:0;return `<tr><td>${esc(new Date(x.d+'T12:00:00').toLocaleDateString('pt-BR'))}</td><td><b>${esc(x.g)}</b><br><small>${esc(x.s||'')}</small></td><td><div class='memberPerf'><div class='miniGauge' style='--v:${Math.max(0,Math.min(360,rate*360))}deg'><strong>${pct(rate)}</strong></div><div><b>${nf.format(x.q)} peças</b><small>Meta ${nf.format(x.meta)}</small></div></div></td><td><div class='memberList namesOnly'>${[...x.m.values()].sort((a,b)=>a.e.localeCompare(b.e,'pt-BR',{numeric:true})).map(p=>`<span class='badge info' title='${nf.format(p.q)} peças'>${esc(p.e)}</span>`).join('')}</div></td></tr>`}).join('')}</tbody></table></div>`}
+function donut(parts,center){const total=parts.reduce((x,p)=>x+p.value,0)||1,a=parts[0]?parts[0].value/total*360:0,b=a+(parts[1]?parts[1].value/total*360:0);return `<div class='donutWrap'><div class='donut' style='--a:${a}deg;--b:${b}deg'><strong>${center}</strong></div><div class='legend'>${parts.map((p,i)=>`<div><i style='background:${p.color||['var(--green)','var(--yellow)','#DDE1E5'][i]}'></i>${esc(p.label)} <b>${p.fmt||nf.format(p.value)}</b></div>`).join('')}</div></div>`}
+function columns(data,limit=10){const rows=data.slice(0,limit),max=Math.max(1,...rows.flatMap(x=>[x.a||0,x.b||0]));return `<div class='columns'>${rows.map(x=>`<div class='colItem' title='${esc(x.label)}'><div class='colValue'>${n1.format(x.b||0)}</div><div class='colBars'><div class='colBar' style='height:${Math.max(2,(x.a||0)/max*100)}%'></div><div class='colBar alt' style='height:${Math.max(2,(x.b||0)/max*100)}%'></div></div><div class='colLabel'>${esc(x.label)}</div></div>`).join('')}</div><div class='legend'><div><i style='background:var(--yellow)'></i>Disponível</div><div><i style='background:var(--blue)'></i>Executado</div></div>`}
+function lineChart(data){const rows=data.slice(-31),w=720,h=190,pad=18,max=Math.max(1,...rows.map(x=>x.value)),pts=rows.map((x,i)=>`${pad+(rows.length<2?0:i*(w-pad*2)/(rows.length-1))},${h-pad-x.value/max*(h-pad*2)}`).join(' ');return `<svg class='lineChart' viewBox='0 0 ${w} ${h}' preserveAspectRatio='none'><line class='lineGrid' x1='${pad}' y1='${h-pad}' x2='${w-pad}' y2='${h-pad}'/><line class='lineGrid' x1='${pad}' y1='${h/2}' x2='${w-pad}' y2='${h/2}'/><polyline class='linePath' points='${pts}'/>${rows.map((x,i)=>{const px=pad+(rows.length<2?0:i*(w-pad*2)/(rows.length-1)),py=h-pad-x.value/max*(h-pad*2);return `<circle class='linePoint' cx='${px}' cy='${py}' r='3'><title>${esc(x.label)}: ${nf.format(x.value)}</title></circle>`}).join('')}</svg>`}
+function calendarGrid(data){if(!data.length)return `<div class='empty'>Sem datas no contexto atual</div>`;const daily=new Map();data.forEach(r=>{const x=daily.get(r.d)||{hp:0,hd:0};x.hp+=Number(r.hp)||0;x.hd+=Number(r.hd)||0;daily.set(r.d,x)});const months=[...new Set([...daily.keys()].map(d=>d.slice(0,7)))].sort();const heads=['SEG','TER','QUA','QUI','SEX','SAB','DOM'];return months.map(mo=>{const [y,m]=mo.split('-').map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1,12),offset=(first.getDay()+6)%7,name=first.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});let cells=Array(offset).fill(`<div class='calDay emptyDay'></div>`);for(let d=1;d<=days;d++){const key=`${mo}-${String(d).padStart(2,'0')}`,x=daily.get(key);if(!x){cells.push(`<div class='calDay mutedDay'><div class='calNum'>${d}</div></div>`);continue}const rate=x.hd?x.hp/x.hd:0,color=rate>=.85?'var(--green)':rate>=.55?'var(--yellow)':'var(--red)';cells.push(`<div class='calDay' style='--cal:${color}' title='${key}'><div class='calNum'>${d}</div><div class='calMetric'>${n1.format(x.hp)} h reais<br>${pct(rate)} disponível</div></div>`)}return `<h3 class='calendarTitle'>${esc(name)}</h3><div class='calendar'>${heads.map(x=>`<div class='calHead'>${x}</div>`).join('')}${cells.join('')}</div>`}).join('')}
+function turnMatrix(rows){const turn=v=>{const x=String(v||'').toUpperCase();if(x.includes('HN'))return 'HN';const n=x.match(/[123]/);return n?n[0]:x},map=new Map();rows.forEach(r=>{const k=r.r||'Não informado',t=turn(r.t),x=map.get(k)||{r:k,s:r.s,rt:r.rt,h:{}};x.h[t]=(x.h[t]||0)+(Number(r.h)||0);map.set(k,x)});const total=x=>Object.values(x.h).reduce((a,b)=>a+b,0),out=[...map.values()].sort((a,b)=>total(b)-total(a)).slice(0,60);return `<div class='tableWrap'><div class='turnGrid'><div class='th'>Recurso</div><div class='th'>T1</div><div class='th'>T2</div><div class='th'>T3</div><div class='th'>HN</div>${out.map(x=>`<div>${badge(x.rt,x.rt==='PESSOA'?'info':'')} ${esc(x.r)}<br><small>${esc(x.s||'')}</small></div>${['1','2','3','HN'].map(t=>`<div class='hours'>${x.h[t]?n1.format(x.h[t]):'-'}</div>`).join('')}`).join('')}</div></div>`}
+
+function weekOfMonth(d){const day=Number(String(d||'').slice(8,10))||1;return 'Semana '+Math.min(5,Math.ceil(day/7))}
+const DIV0=(a,b)=>b?((Number(a)||0)/(Number(b)||0)):0;
+function comboWeek(p,cd,r){const weeks=['Semana 1','Semana 2','Semana 3','Semana 4','Semana 5'],planSector=new Map(group(r,'s','pl').map(x=>[x.label,x.value])),hrsTotal=new Map(group(cd,'s','hd').map(x=>[x.label,x.value])),hrsWeek=new Map();cd.forEach(x=>{const k=(x.s||'Não informado')+'|'+weekOfMonth(x.d);hrsWeek.set(k,(hrsWeek.get(k)||0)+(Number(x.hd)||0))});const prod=new Map();p.forEach(x=>{const w=weekOfMonth(x.d);prod.set(w,(prod.get(w)||0)+(Number(x.q)||0))});const data=weeks.map(w=>{let pl=0;planSector.forEach((plan,s)=>{pl+=plan*DIV0(hrsWeek.get(s+'|'+w),hrsTotal.get(s))});const pr=prod.get(w)||0;return {label:w,a:pl,b:pr,pct:DIV0(pr,pl)}});return comboChart(data,'Planejado','Produzido','% entregue')}
+function comboChart(data,la,lb,lp){const max=Math.max(1,...data.flatMap(x=>[x.a||0,x.b||0]));return `<div class='comboChart'><div class='comboScroll'><div class='comboInner' style='--n:${data.length}'><div class='axisLabel'><span>${nf.format(max)}</span><span>${nf.format(max/2)}</span><span>0</span></div>${data.map(x=>`<div class='comboCol'><span class='comboPct'>${pct(x.pct||0)}</span><div class='barA' style='height:${Math.max(2,(x.a||0)/max*150)}px' title='${la}: ${nf.format(x.a||0)}'><span class='barData'>${nf.format(x.a||0)}</span></div><div class='barB' style='height:${Math.max(2,(x.b||0)/max*150)}px' title='${lb}: ${nf.format(x.b||0)}'><span class='barData'>${nf.format(x.b||0)}</span></div></div>`).join('')}<div class='axisLabel'><span>120%</span><span>60%</span><span>0%</span></div><div></div>${data.map(x=>`<div class='comboX'>${esc(x.label)}</div>`).join('')}<div></div></div></div><div class='premiumLegend'><span><i style='background:#FFCC00'></i>${la}</span><span><i style='background:#636466'></i>${lb}</span><span><i style='background:#B1B3B6'></i>${lp}</span></div></div>`}
+function semiGauge(value,label,min=0,max=1,scale='num'){const v=Math.max(0,Math.min(1,DIV0(value-min,max-min))),end=180*v,fmtScale=x=>scale==='pct'?pct(x):nf.format(x),cy=108;return `<div class='semiGauge'><svg viewBox='0 0 240 140'><path d='M30 ${cy} A90 90 0 0 1 210 ${cy}' fill='none' stroke='#F2F2F2' stroke-width='28' stroke-linecap='butt'/><path d='M30 ${cy} A90 90 0 0 1 ${120-90*Math.cos(end*Math.PI/180)} ${cy-90*Math.sin(end*Math.PI/180)}' fill='none' stroke='#FFCC00' stroke-width='28' stroke-linecap='butt'/></svg><div class='semiValue'>${label}</div><div class='semiScale'><span>${fmtScale(min)}</span><span>${fmtScale(max)}</span></div></div>`}
+function rankColumns(data,limit=999,fmt=nf){const rows=data.slice(0,limit),max=Math.max(1,...rows.map(x=>x.value)),format=typeof fmt==='function'?fmt:v=>fmt.format(v),w=Math.max(760,rows.length*112);return `<div class='scrollBars' style='--rankw:${w}px'><div class='columns' style='height:270px'>${rows.map(x=>`<div class='colItem' title='${esc(x.label)}'><div class='colValue'>${format(x.value)}</div><div class='colBars'><div class='colBar' style='height:${Math.max(2,x.value/max*100)}%'></div></div><div class='colLabel'>${esc(x.label)}</div></div>`).join('')}</div></div>`}
+function monthlySeries(ms,key){const map=new Map();ms.forEach(r=>{const k=r.mo||r.lab,x=map.get(k)||{label:r.lab||k,value:0,mo:r.mo};x.value+=Number(r[key])||0;map.set(k,x)});return [...map.values()].sort((a,b)=>String(a.mo).localeCompare(String(b.mo)))}
+function compareCards(ms){if(!state.mo)return `<div class='notice'>Selecione um mês de referência nos filtros para visualizar o comparativo.</div>`;const [y,m]=state.mo.split('-').map(Number),cur=ms.filter(x=>x.mo===state.mo),sumKey=(arr,k)=>sum(arr,k),metrics=[['Peças Produzidas','prod'],['Horas Produtivas','hp'],['Horas Totais','ht']];let cards='';for(let yy=y-1;yy>=y-3;yy--){const ref=`${yy}-${String(m).padStart(2,'0')}`,old=ms.filter(x=>x.mo===ref);if(!old.length)continue;cards+=`<div class='compareCard'><div class='compareTitle'>${state.mo} X ${ref}</div><div class='compareGrid'>${metrics.map(([label,k])=>{const a=sumKey(cur,k),b=sumKey(old,k),v=DIV0(a-b,b),cls=v>=0?'arrowUp':'arrowDown',arrow=v>=0?'&#9650;':'&#9660;';return `<div class='compareItem'><div><b>${pct(v)}</b><br><span>${label}</span></div><strong class='${cls}'>${arrow}</strong></div>`}).join('')}</div></div>`}return cards||`<div class='notice'>Não há anos anteriores para o mês selecionado.</div>`}
+function renderResumo(p,o,c,cd,m,g,a,r){const qo=metric('qOff',sum(p,'q')),qs=metric('qSys',sum(o,'sys')),plan=metric('plan',sum(r,'pl')||sum(o.filter(x=>x.os!=='SUSPENSA'),'pl')),he=metric('hExec',sum(p,'h')),ha=sum(r,'hd')||metric('hAvail',sum(cd,'hd')),idle=sum(r,'hidle'),idlePct=DIV0(idle,ha),eff=DIV0(qo,plan),naoProd=Math.max(0,plan-qo),conclSetor=group(o,'s','off').map(x=>{const pl=sum(o.filter(y=>y.s===x.label),'pl');return {label:x.label,value:DIV0(x.value,pl)}});view.innerHTML=`<div class='kpis'>${kpi('QTDE PRODUZIDA',nf.format(qo),'Lançado pela produção')}${kpi('PRODUZIDO TOTVS',nf.format(qs),'Fonte prioritária ORDENS_AUX','var(--cyan)')}${kpi('QTDE PLANEJADA',nf.format(plan),'Planejamento mensal')}${kpi('EFICIÊNCIA',pct(eff),'Produzido sobre meta ajustada','var(--green)')}${kpi('HORAS EXECUTADAS',n1.format(he),'Lançadas pela produção','var(--blue)')}${kpi('OCIOSIDADE',pct(idlePct),`${n1.format(idle)} h RESUMO_ANALISE`,'var(--orange)')}</div><section class='panel widePanel'><h3>Evolução Semanal da Produção</h3>${comboWeek(p,cd,r)}</section><div class='grid2'><section class='panel'><h3>Eficiência Geral da Fábrica</h3>${semiGauge(eff,pct(eff),0,1.2)}</section><section class='panel'><h3>Quantidade Não Produzida</h3>${semiGauge(naoProd,nf.format(naoProd),0,Math.max(plan,naoProd,1))}</section></div><div class='grid2'><section class='panel'><h3>Conclusão Média das Ordens por Setor</h3>${bars(conclSetor,999,pct,true)}</section><section class='panel'><h3>Horas Planejadas x Horas Realizadas até Hoje</h3>${comboChart([{label:'Até hoje',a:ha,b:he,pct:DIV0(he,ha)}],'Horas planejadas','Horas executadas','% execução')}</section></div><section class='panel'><h3>Produzido por setor</h3>${bars(group(p,'s'),999)}</section>`;}
+function renderCritica(p,o,tr){const allRows=o.map(r=>({...r,saldo:Math.max(0,(r.pl||0)-(r.off||0)),excesso:Math.max(0,(r.off||0)-(r.pl||0)),exec:(r.off||0)>(r.pl||0)?'EXCEDIDA':(r.off||0)===(r.pl||0)&&r.pl?'CONCLUÍDA':(r.off||0)>0?'EM EXECUÇÃO':'SEM PRODUÇÃO'})),rows=allRows.slice().sort((a,b)=>b.excesso-a.excesso||b.saldo-a.saldo).slice(0,120);view.innerHTML=`<div class='kpis'>${kpi('Ordens ativas',nf.format(o.filter(x=>x.os!=='SUSPENSA').length),'')}${kpi('Ordens suspensas',nf.format(o.filter(x=>x.os==='SUSPENSA').length),'','var(--orange)')}${kpi('Sem lançamento',nf.format(o.filter(x=>x.dv==='SEM_LANCAMENTO').length),'Ordem sem registro em PRODUCAO_INTERVENCOES_QUERY','var(--red)')}${kpi('Com divergência',nf.format(o.filter(x=>x.dv==='DIVERGENTE').length),'','var(--red)')}${kpi('Saldo a produzir',nf.format(sum(allRows,'saldo')),'Por ordem e quantidade planejada')}${kpi('Excesso produzido',nf.format(sum(allRows,'excesso')),'Qtd produzida acima da ordem','var(--red)')}</div><section class='panel'><h3>Execução por ordem</h3>${table([{l:'Ordem',k:'o'},{l:'Setor',k:'s'},{l:'Item',k:'i'},{l:'QTDE PLANEJADA',num:1,f:r=>nf.format(r.pl||0)},{l:'QTDE PRODUZIDA',num:1,f:r=>nf.format(r.off||0)},{l:'Execução',f:r=>badge(r.exec,r.exec==='EXCEDIDA'?'bad':r.exec==='CONCLUÍDA'?'ok':'warn')},{l:'Status',f:r=>badge(r.dv,r.dv==='OK'?'ok':'bad')}],rows)}</section><section class='panel'><h3>Turnos ativos por recurso</h3>${turnMatrix(tr)}</section>`;}
+function renderCapacidade(p,o,c,cd,tr){const cal=state.df||state.dt||state.mo?cd:c,cap=metric('capacity',sum(cal,'cap')),hp=metric('hProd',sum(cal,'hp')),ha=metric('hAvail',sum(cal,'hd')),he=metric('hExec',sum(p,'h')),idle=metric('hoursIdle',Math.max(0,ha-he)),stops=metric('hMaint',sum(cal,'hstop')),setup=metric('hSetup',sum(cal,'hsu')),avail=group(cal,'s','hd'),executed=new Map(group(p,'s','h').map(x=>[x.label,x.value])),cols=avail.map(x=>({label:x.label,a:x.value,b:executed.get(x.label)||0}));view.innerHTML=`<div class='kpis'>${kpi('Capacidade em peças',nf.format(cap),'')}${kpi('Horas disponíveis',n1.format(ha),'')}${kpi('Horas executadas',n1.format(he),'')}${kpi('Execução das horas',pct(ha?he/ha:0),'','var(--blue)')}${kpi('Horas ociosas',n1.format(idle),'','var(--orange)')}${kpi('Paradas + setup',n1.format(stops+setup),'','var(--red)')}</div><div class='grid2'><section class='panel'><h3>Disponível x executado por setor</h3>${columns(cols)}</section><section class='panel'><h3>Composição das horas disponíveis</h3>${donut([{label:'Executadas',value:he,color:'var(--green)',fmt:n1.format(he)+' h'},{label:'Ociosas',value:idle,color:'var(--yellow)',fmt:n1.format(idle)+' h'}],pct(ha?he/ha:0))}</section></div><section class='panel'><h3>Máquinas e pessoas por turno</h3>${turnMatrix(tr)}</section>`;}
+function renderComparativo(ms){const conclusao=monthlySeries(ms,'pct'),prod=monthlySeries(ms,'prod'),func=monthlySeries(ms,'func').map(x=>({...x,b:sum(ms.filter(r=>r.mo===x.mo),'he'),pct:DIV0(sum(ms.filter(r=>r.mo===x.mo),'he'),Math.max(1,x.value))}));view.innerHTML=`${compareCards(ms)}<section class='panel'><h3>Conclusão Média das Ordens por Mês</h3>${comboChart(conclusao.map(x=>({label:x.label,a:x.value,b:sum(ms.filter(r=>r.mo===x.mo),'hp'),pct:x.value})),'Conclusão média','Horas produtivas','% conclusão')}</section><section class='panel'><h3>Produção Mensal</h3>${rankColumns(prod,999,nf)}</section><section class='panel'><h3>Funcionários x Horas Extras por Mês</h3>${comboChart(func.map(x=>({label:x.label,a:x.value,b:x.b,pct:x.pct})),'Funcionários','Horas extras','HE por funcionário')}</section>`;}
+function renderProducao(p,g,r){const q=metric('qOff',sum(p,'q')),h=metric('hExec',sum(p,'h')),rows=metric('prodRows',p.length),machines=group(p,'m'),daily=group(p,'d'),cat=group(p,'it'),plan=sum(r,'pl'),expected=DIV0(sum(r,'hd')-sum(r,'hidle'),sum(r,'hd')),real=DIV0(q,plan),disp=group(r,'m','hd').map(x=>{const stop=sum(r.filter(y=>y.m===x.label),'hidle');return {label:x.label,value:DIV0(x.value-stop,x.value)}});view.innerHTML=`<div class='kpis'>${kpi('Quantidade produzida',nf.format(q),'Fonte PRODUCAO_INTERVENCOES_QUERY')}${kpi('Horas executadas',n1.format(h),'')}${kpi('Peças por hora',n1.format(DIV0(q,h)),'')}${kpi('Lançamentos',nf.format(rows),'')}${kpi('Máquinas com lançamento',nf.format(machines.length),'')}${kpi('Produção realizada do plano',pct(real),'','var(--yellow)')}</div><div class='grid2'><section class='panel'><h3>Expectativa de Produção até Hoje</h3>${semiGauge(expected,pct(expected),0,1.2)}</section><section class='panel'><h3>Produção Realizada do Plano</h3>${semiGauge(real,pct(real),0,1.2)}</section></div><section class='panel'><h3>Produção Diária</h3>${rankColumns(daily,999,nf)}</section><section class='panel'><h3>Produção e Eficiência por Máquina</h3>${rankColumns(machines,999,nf)}</section><section class='panel'><h3>Produção e Eficiência por Categoria</h3>${rankColumns(cat,999,nf)}</section><section class='panel'><h3>Disponibilidade por Máquina</h3>${bars(disp,999,pct,true)}</section>`;}
+function renderManutencao(m){const prev=m.filter(x=>x.mt==='PREVENTIVA'),corr=m.filter(x=>x.mt==='CORRETIVA'),other=m.filter(x=>x.mt!=='PREVENTIVA'&&x.mt!=='CORRETIVA'),hours=metric('hMaint',sum(m,'h')),count=metric('maintCount',m.length);view.innerHTML=`<div class='kpis'>${kpi('Horas de parada',n1.format(hours),'Consolidado por OM','var(--red)')}${kpi('Ordens manutenção',nf.format(count),'')}${kpi('Tempo médio resposta',n1.format(m.length?sum(m,'resp')/m.length:0),'horas')}${kpi('Tempo médio execução',n1.format(m.length?sum(m,'exec')/m.length:0),'horas')}${kpi('Preventiva',pct(m.length?prev.length/m.length:0),'','var(--green)')}${kpi('Corretiva',pct(m.length?corr.length/m.length:0),'','var(--orange)')}</div><div class='grid2'><section class='panel'><h3>Tipos de manutenção</h3>${donut([{label:'Preventiva',value:prev.length,color:'var(--green)'},{label:'Corretiva',value:corr.length,color:'var(--yellow)'},{label:'Outras',value:other.length,color:'#DDE1E5'}],nf.format(count))}</section><section class='panel'><h3>Horas por máquina</h3>${bars(group(m,'m','h'),12,n1)}</section></div><section class='panel'><h3>Sintomas recorrentes</h3>${bars(group(m,'sym','h'),18,n1,true)}</section>`;}
+function renderPessoas(g,u,gd){const people=efficiency(g,'e'),groups=efficiency(g.filter(x=>x.g),'g'),q=metric('personQ',sum(g,'q')),meta=metric('personMeta',sum(g,'meta')),absent=metric('hoursAbsent',sum(u,'h')),groupQtd=sum(g.filter(x=>x.g),'q'),individualQtd=Math.max(0,sum(g,'q')-groupQtd);view.innerHTML=`<div class='kpis'>${kpi('Pessoas produzindo',nf.format(metric('people',uniq(g,'e').length)),'')}${kpi('Grupos',nf.format(uniq(g,'g').length),'')}${kpi('Quantidade produzida',nf.format(q),'Atribuída a pessoas e grupos')}${kpi('Meta esperada',nf.format(meta),'Tempo total DVCP09 e pessoas do dia')}${kpi('Eficiência geral',pct(meta?q/meta:0),'')}${kpi('Horas ausentes',n1.format(absent),'','var(--red)')}</div><div class='grid2'><section class='panel'><h3>Composição da quantidade produzida</h3>${donut([{label:'Individual',value:individualQtd,color:'var(--green)'},{label:'Grupos',value:groupQtd,color:'var(--yellow)'}],nf.format(sum(g,'q')))}</section><section class='panel'><h3>Eficiência por grupo</h3>${bars(groups,18,pct,true)}</section></div><div class='grid2 widePeople'><section class='panel'><h3>Eficiência e quantidade produzida por pessoa</h3>${performanceRows(people,30)}</section><section class='panel'><h3>Composição diária dos grupos</h3>${groupDailyTable(gd)}</section></div>`;}
+function renderCalendario(c){const hd=metric('hAvail',sum(c,'hd')),hp=metric('hProd',sum(c,'hp')),hs=metric('hSetup',sum(c,'hsu')),cap=metric('capacity',sum(c,'cap'));view.innerHTML=`<div class='kpis'>${kpi('Dias no contexto',nf.format(uniq(c,'d').length),'')}${kpi('Horas disponíveis',n1.format(hd),'')}${kpi('Horas reais',n1.format(hp),'')}${kpi('Execução',pct(hd?hp/hd:0),'','var(--blue)')}${kpi('Paradas + setup',n1.format(sum(c,'hstop')+hs),'','var(--red)')}${kpi('Capacidade',nf.format(cap),'peças')}</div><section class='panel'><h3>Calendário operacional</h3>${calendarGrid(c)}</section>`;}
+function renderAlertas(a){const order={CRITICA:0,ATENCAO:1,INFORMATIVA:2},rows=a.slice().sort((x,y)=>(order[x.sev]??9)-(order[y.sev]??9)).slice(0,300),total=metric('alerts',a.length);view.innerHTML=`<div class='kpis'>${kpi('Total alertas',nf.format(total),'')}${kpi('Críticos',nf.format(a.filter(x=>x.sev==='CRITICA').length),'','var(--red)')}${kpi('Atenção',nf.format(a.filter(x=>x.sev==='ATENCAO').length),'','var(--orange)')}</div><section class='panel'><h3>Fila de correção</h3>${table([{l:'Severidade',f:r=>badge(r.sev,r.sev==='CRITICA'?'bad':'warn')},{l:'Tipo',k:'typ'},{l:'Base',k:'base'},{l:'Coluna',k:'col'},{l:'Ordem',k:'o'},{l:'Item',k:'i'},{l:'Ação',k:'act'}],rows)}</section>`;}
+function renderAuditoria(p,o,c,m,g,a){const checks=[['Produção oficial separada do sistema','OK'],['Manutenção consolidada por ordem','OK'],['Ordens suspensas separadas','OK'],['Base de refugo','PENDENTE'],['Tipo de apontamento na produção','PENDENTE'],['Registros sem duração',p.filter(x=>x.h==null).length? 'REVISÃO':'OK']];view.innerHTML=`<div class='kpis'>${kpi('Registros produção',nf.format(D.meta.prodRows),'')}${kpi('Ordens',nf.format(D.meta.orderRows),'')}${kpi('Ordens manutenção',nf.format(D.meta.maintRows),'')}${kpi('Eventos grupos',nf.format(D.meta.groupRows),'')}${kpi('Alertas no contexto',nf.format(a.length),'')}</div><div class='grid2'><section class='panel'><h3>Checklist</h3>${table([{l:'Validação',f:r=>esc(r[0])},{l:'Resultado',f:r=>badge(r[1],r[1]==='OK'?'ok':'warn')}],checks)}</section><section class='panel'><h3>Cobertura</h3><dl class='audit'><dt>Produção sem duração</dt><dd>${nf.format(p.filter(x=>x.h==null).length)}</dd><dt>Produção sem máquina</dt><dd>${nf.format(p.filter(x=>!x.m).length)}</dd><dt>Ordens divergentes</dt><dd>${nf.format(o.filter(x=>x.dv==='DIVERGENTE').length)}</dd><dt>Recursos parados</dt><dd>${nf.format(c.filter(x=>x.rs==='PARADA').length)}</dd><dt>Grupos sem composição</dt><dd>${nf.format(g.filter(x=>x.at==='GRUPO_SEM_COMPOSICAO').length)}</dd></dl></section></div>`;}
+function renderRefugo(){view.innerHTML=`<section class='panel empty'><div><strong>BASE NÃO CONECTADA</strong><div>Base de refugo ainda não conectada</div></div></section>`;}
+
+function render(){const p=f(D.p),o=f(D.o),c=f(D.c),r=f(D.r),ms=f(D.ms),cd=f(D.cd),m=f(D.m),g=f(D.g),gd=f(D.gd),u=f(D.u),a=f(D.a),tr=f(D.tr);document.getElementById('pageTitle').textContent=titles[page];if(page==='critica')renderCritica(p,o,tr);else if(page==='capacidade')renderCapacidade(p,o,c,cd,tr);else if(page==='calendario')renderCalendario(cd);else if(page==='alertas')renderAlertas(a);else if(page==='auditoria')renderAuditoria(p,o,c,m,g,a);else renderCritica(p,o,tr)}
+
+document.getElementById('updated').textContent=D.meta.updated;
+document.getElementById('menuBtn').onclick=()=>window.innerWidth<521?filtersEl.classList.toggle('closed'):app.classList.toggle('collapsed');
+document.getElementById('filterBtn').onclick=()=>filtersEl.classList.toggle('closed');
+document.getElementById('clearBtn').onclick=clearAll;
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');page=b.dataset.page;render()});
+buildFilters();const requested=location.hash.slice(1);if(titles[requested]){page=requested;document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page))}if(window.innerWidth<821)filtersEl.classList.add('closed');render();
+})();
+</script>"
+
+RETURN
+    Css & HtmlBase & Script
+
+
+
+
+
+
+
