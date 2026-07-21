@@ -21,9 +21,13 @@ A solução permite investigar perguntas como:
 
 ## Demonstração
 
-[Abrir demonstração interativa](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html)
+[Abrir dashboard de Produção](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html) · [Abrir Análise Crítica](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/analise_critica.html)
 
-A demonstração independente permite alternar entre o resumo da produção e a análise crítica, além de filtrar período e setor. Todo o conteúdo é sintético.
+A demonstração reproduz a mesma composição do visual HTML Content usado no Power BI. São onze páginas interligadas, com filtros por período, setor, máquina, turno, ordem, item, grupo e funcionário. Todo o conteúdo publicado é sintético.
+
+**Produção:** Resumo Geral, Produção Real, Comparativo de Meses, Manutenção, Refugo e Pessoas e Grupos.
+
+**Análise:** Análise Crítica, Capacidade, Calendário Fabril, Alertas e Auditoria.
 
 | Resumo geral | Análise crítica |
 | --- | --- |
@@ -78,8 +82,10 @@ O modelo usa dimensões conformadas para data, ordem, item, máquina, turno, mol
 
 ```text
 demo/
-  dashboard_demo.html       demonstração interativa e sintética
-  dados_sinteticos.json     amostra estrutural sem dados reais
+  dashboard_demo.html       operação e produção
+  analise_critica.html      capacidade, alertas e auditoria
+  demo-data.js              massa sintética compartilhada
+  build-demo.ps1            gera as demos a partir do HTML Content
 docs/
   ARQUITETURA.md            fluxo técnico e responsabilidades
   PRIVACIDADE.md            política de anonimização
