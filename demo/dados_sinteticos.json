@@ -2,10 +2,10 @@
   "aviso": "Dados totalmente sinteticos para demonstracao",
   "periodo": "2026-01",
   "setores": [
-    {"setor": "Usinagem", "planejado": 128000, "produzido": 119400, "horasDisponiveis": 820, "horasExecutadas": 748},
-    {"setor": "Montagem", "planejado": 94000, "produzido": 88700, "horasDisponiveis": 690, "horasExecutadas": 641},
-    {"setor": "Injecao", "planejado": 156000, "produzido": 148900, "horasDisponiveis": 910, "horasExecutadas": 842},
-    {"setor": "Acabamento", "planejado": 72000, "produzido": 68300, "horasDisponiveis": 510, "horasExecutadas": 476}
+    {"setor": "SETOR A", "planejado": 128000, "produzido": 119400, "horasDisponiveis": 820, "horasExecutadas": 748},
+    {"setor": "SETOR B", "planejado": 94000, "produzido": 88700, "horasDisponiveis": 690, "horasExecutadas": 641},
+    {"setor": "SETOR C", "planejado": 156000, "produzido": 148900, "horasDisponiveis": 910, "horasExecutadas": 842},
+    {"setor": "SETOR D", "planejado": 72000, "produzido": 68300, "horasDisponiveis": 510, "horasExecutadas": 476}
   ],
   "semanas": [
     {"semana": "S1", "planejado": 101000, "produzido": 95200},
@@ -22,13 +22,13 @@
     {"recurso": "Recurso 05", "eficiencia": 0.78, "quantidade": 27800}
   ],
   "ordens": [
-    {"ordem": "OP-2026-001", "setor": "Usinagem", "planejado": 18000, "produzido": 18000, "status": "Concluida"},
-    {"ordem": "OP-2026-002", "setor": "Montagem", "planejado": 14500, "produzido": 12100, "status": "Em execucao"},
-    {"ordem": "OP-2026-003", "setor": "Injecao", "planejado": 22000, "produzido": 22800, "status": "Excesso"},
-    {"ordem": "OP-2026-004", "setor": "Acabamento", "planejado": 9800, "produzido": 0, "status": "Sem lancamento"}
+    {"ordem": "ORDEM-DEMO-001", "setor": "SETOR A", "planejado": 18000, "produzido": 18000, "status": "Concluida"},
+    {"ordem": "ORDEM-DEMO-002", "setor": "SETOR B", "planejado": 14500, "produzido": 12100, "status": "Em execucao"},
+    {"ordem": "ORDEM-DEMO-003", "setor": "SETOR C", "planejado": 22000, "produzido": 22800, "status": "Excesso"},
+    {"ordem": "ORDEM-DEMO-004", "setor": "SETOR D", "planejado": 9800, "produzido": 0, "status": "Sem lancamento"}
   ],
   "grupos": [
-    {"grupo": "Equipe Alfa", "componentes": ["Pessoa A", "Pessoa B", "Pessoa C"], "eficiencia": 0.93, "quantidade": 18600},
-    {"grupo": "Equipe Beta", "componentes": ["Pessoa D", "Pessoa E"], "eficiencia": 0.88, "quantidade": 14200}
+    {"grupo": "EQUIPE DEMO 01", "componentes": ["COLABORADOR 001", "COLABORADOR 002", "COLABORADOR 003"], "eficiencia": 0.93, "quantidade": 18600},
+    {"grupo": "EQUIPE DEMO 02", "componentes": ["COLABORADOR 004", "COLABORADOR 005"], "eficiencia": 0.88, "quantidade": 14200}
   ]
 }

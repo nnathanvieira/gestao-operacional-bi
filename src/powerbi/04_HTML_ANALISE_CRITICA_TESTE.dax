@@ -59,13 +59,13 @@ VAR JsonOrdens =
             )
         VAR QtdPlanejada =
             IF(
-                fato_ordens[Setor] = "M1",
+                fato_ordens[Setor] = "SETOR A",
                 COALESCE(fato_ordens[QtdeOrdemConv], fato_ordens[QtdeOrdem]),
                 fato_ordens[QtdeOrdem]
             )
         VAR QtdSistema =
             IF(
-                fato_ordens[Setor] = "M1",
+                fato_ordens[Setor] = "SETOR A",
                 COALESCE(fato_ordens[QtdeProduzidaConv], fato_ordens[QtdeProduzidaSistema]),
                 fato_ordens[QtdeProduzidaSistema]
             )
@@ -535,7 +535,7 @@ const metric=(key,approx)=>hasFilters()?approx:Number(D.meta[key]??approx);
 
 // Completa dimensoes derivadas e a classificacao de divergencia nas producoes.
 const om=new Map(D.o.map(r=>[r.o,r]));
-D.p.forEach(r=>{const ord=om.get(r.o);r.mo=r.d?r.d.slice(0,7):'';r.dv=ord?ord.dv:(r.o?'SEM_ORDEM_CALENDARIO':'SEM_ORDEM');r.i=ord?ord.i:'';r.it=ord?ord.it:'';r.id=ord?ord.id:'';r.md=ord?ord.md:'';r.os=ord?ord.os:'';r.r=r.s==='M2'?(r.g||r.e||'M2 sem recurso'):r.m;r.pt='';});
+D.p.forEach(r=>{const ord=om.get(r.o);r.mo=r.d?r.d.slice(0,7):'';r.dv=ord?ord.dv:(r.o?'SEM_ORDEM_CALENDARIO':'SEM_ORDEM');r.i=ord?ord.i:'';r.it=ord?ord.it:'';r.id=ord?ord.id:'';r.md=ord?ord.md:'';r.os=ord?ord.os:'';r.r=r.s==='SETOR B'?(r.g||r.e||'SETOR_B sem recurso'):r.m;r.pt='';});
 [D.cd,D.m,D.g,D.gd,D.u,D.a,D.ms].forEach(a=>a.forEach(r=>r.mo=r.mo||(r.d?r.d.slice(0,7):'')));
 
 const filterDefs=[
@@ -593,10 +593,3 @@ buildFilters();const requested=location.hash.slice(1);if(titles[requested]){page
 
 RETURN
     Css & HtmlBase & Script
-
-
-
-
-
-
-

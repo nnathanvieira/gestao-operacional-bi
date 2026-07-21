@@ -1,14 +1,14 @@
 /* Dados integralmente sinteticos para a demonstracao publica. */
 window.DEMO_DATA = (() => {
-  const sectors = ["M1", "M2", "COLA", "ACABAMENTO"];
+  const sectors = ["SETOR A", "SETOR B", "SETOR C", "SETOR D"];
   const machines = {
-    M1: ["INJ-01", "INJ-02", "INJ-04"],
-    M2: ["GRUPO ALFA", "GRUPO BETA"],
-    COLA: ["COL-01", "COL-02"],
-    ACABAMENTO: ["ACB-01", "ACB-03"]
+    "SETOR A": ["RECURSO A-01", "RECURSO A-02", "RECURSO A-03"],
+    "SETOR B": ["EQUIPE DEMO 01", "EQUIPE DEMO 02"],
+    "SETOR C": ["RECURSO C-01", "RECURSO C-02"],
+    "SETOR D": ["RECURSO D-01", "RECURSO D-02"]
   };
-  const categories = ["COMPONENTE", "CONJUNTO", "ACABAMENTO", "EMBALAGEM"];
-  const people = ["Ana Lima", "Bruno Reis", "Carla Souza", "Diego Alves", "Elisa Martins", "Fabio Costa"];
+  const categories = ["TIPO A", "TIPO B", "TIPO C", "TIPO D"];
+  const people = ["COLABORADOR 001", "COLABORADOR 002", "COLABORADOR 003", "COLABORADOR 004", "COLABORADOR 005", "COLABORADOR 006"];
   const iso = day => `2026-06-${String(day).padStart(2, "0")}`;
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -18,13 +18,13 @@ window.DEMO_DATA = (() => {
     const planned = 7800 + (index % 7) * 1250;
     const produced = Math.round(planned * (0.68 + (index % 6) * 0.055));
     return {
-      o: `OP-${String(26041 + index).padStart(5, "0")}`,
+      o: `ORDEM-DEMO-${String(index + 1).padStart(3, "0")}`,
       s: sector,
       m: machine,
-      i: `IT-${String(310 + index).padStart(4, "0")}`,
+      i: `ITEM-DEMO-${String(index + 1).padStart(3, "0")}`,
       it: categories[index % categories.length],
       id: `Item demonstrativo ${String(index + 1).padStart(2, "0")}`,
-      md: sector === "M1" ? `ML-${11 + (index % 8)}` : "",
+      md: sector === "SETOR A" ? `MOLDE DEMO ${String(1 + (index % 8)).padStart(2, "0")}` : "",
       os: index % 9 === 0 ? "PENDENTE" : "LIBERADA",
       dv: index % 11 === 0 ? "SEM_LANCAMENTO" : index % 7 === 0 ? "DIVERGENTE" : "OK",
       pl: planned,
@@ -66,7 +66,7 @@ window.DEMO_DATA = (() => {
 
   const tr = sectors.flatMap((sector, sIndex) => machines[sector].flatMap((resource, rIndex) =>
     ["1º TURNO", "2º TURNO", "3º TURNO"].map((turn, tIndex) => ({
-      s: sector, r: resource, rt: sector === "M2" ? "PESSOA" : "MAQUINA", t: turn,
+      s: sector, r: resource, rt: sector === "SETOR B" ? "PESSOA" : "MAQUINA", t: turn,
       work: (rIndex + tIndex) % 4 === 3 ? "NAO" : "SIM", h: 118 + sIndex * 9 + tIndex * 14
     }))
   ));
@@ -86,15 +86,15 @@ window.DEMO_DATA = (() => {
   const gd = [];
   for (let day = 1; day <= 30; day += 2) {
     people.forEach((person, index) => {
-      const group = index < 3 ? "GRUPO ALFA" : "GRUPO BETA";
+      const group = index < 3 ? "EQUIPE DEMO 01" : "EQUIPE DEMO 02";
       const quantity = 940 + ((day * 91 + index * 173) % 720);
       const target = 1280 + (index % 3) * 90;
-      g.push({ d: iso(day), s: "M2", m: group, t: `${1 + (index % 2)}º TURNO`, i: `IT-${340 + index}`, it: categories[index % categories.length], g: group, e: person, at: "RATEIO_GRUPO", ph: 180, q: quantity, h: 7.5, meta: target });
-      gd.push({ d: iso(day), s: "M2", g: group, e: person, q: quantity, meta: target });
+      g.push({ d: iso(day), s: "SETOR B", m: group, t: `${1 + (index % 2)}º TURNO`, i: `ITEM-DEMO-${340 + index}`, it: categories[index % categories.length], g: group, e: person, at: "RATEIO_GRUPO", ph: 180, q: quantity, h: 7.5, meta: target });
+      gd.push({ d: iso(day), s: "SETOR B", g: group, e: person, q: quantity, meta: target });
     });
   }
 
-  const u = people.slice(0, 4).map((person, index) => ({ d: iso(6 + index * 5), s: "M2", t: `${1 + (index % 2)}º TURNO`, e: person, h: 4 + index }));
+  const u = people.slice(0, 4).map((person, index) => ({ d: iso(6 + index * 5), s: "SETOR B", t: `${1 + (index % 2)}º TURNO`, e: person, h: 4 + index }));
   const r = sectors.flatMap((sector, sIndex) => machines[sector].map((machine, index) => {
     const hd = 430 + sIndex * 35;
     const hn = 320 + index * 44 + sIndex * 18;

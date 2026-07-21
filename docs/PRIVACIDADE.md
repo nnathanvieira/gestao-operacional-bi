@@ -19,6 +19,10 @@ não resultam de substituição direta, embaralhamento, amostragem ou transforma
 das bases reais. Assim, não preservam valores, distribuições ou combinações que
 permitam inferir a operação original.
 
+Os identificadores visíveis seguem uma convenção neutra: `SETOR A-D`,
+`RECURSO A-01`, `EQUIPE DEMO 01`, `COLABORADOR 001`, `ORDEM-DEMO-001` e
+`ITEM-DEMO-001`. Nenhum desses valores corresponde a um cadastro operacional.
+
 ## Código-fonte
 
 O código publicado preserva nomes técnicos de tabelas e colunas porque eles

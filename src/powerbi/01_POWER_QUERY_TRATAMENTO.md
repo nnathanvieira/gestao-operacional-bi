@@ -190,7 +190,7 @@ let
         "QtdeProduzidaSistema", "QtdeProduzidaConv", "StatusOrdem"
     }),
     QuantidadeAnalitica = Table.AddColumn(Selecionadas, "QtdeProduzidaSistemaAnalitica", each
-        if [Setor] = "M1" then
+        if [Setor] = "SETOR A" then
             (if [QtdeProduzidaConv] = null then [QtdeProduzidaSistema] else [QtdeProduzidaConv])
         else [QtdeProduzidaSistema], type nullable number)
 in
@@ -208,7 +208,7 @@ let
     Cabecalhos = Table.PromoteHeaders(Fonte, [PromoteAllScalars=true]),
     Tipos = Table.TransformColumnTypes(Cabecalhos, {
         {"PADRONIZADO", type text}, {"LINHA", type text}, {"COMPLETO", type text},
-        {"DVCP07", type text}, {"DVWM11", type text}
+        {"DVCP07", type text}, {"DVWSETOR_A1", type text}
     }),
     Despivotada = Table.UnpivotOtherColumns(Tipos, {"PADRONIZADO"}, "Origem", "Alias"),
     Validada = Table.SelectRows(Despivotada, each fxTexto([Alias]) <> null),
@@ -225,7 +225,7 @@ let
     Caminho = pPastaDashboard & "\CALENDARIO_FABRIL_OPERACIONAL.xlsm",
     Fonte = fxLerAba(Caminho, "NOMES_MAQUINAS"),
     Cabecalhos = Table.PromoteHeaders(Fonte, [PromoteAllScalars=true]),
-    SomenteAliases = Table.SelectColumns(Cabecalhos, {"PADRONIZADO", "PD104", "DVWM11"}),
+    SomenteAliases = Table.SelectColumns(Cabecalhos, {"PADRONIZADO", "PD104", "DVWSETOR_A1"}),
     Despivotada = Table.UnpivotOtherColumns(SomenteAliases, {"PADRONIZADO"}, "Origem", "Alias"),
     Proprio = Table.RenameColumns(
         Table.SelectColumns(SomenteAliases, {"PADRONIZADO"}),
@@ -298,17 +298,17 @@ let
     // PARAM_TURNOS permanece apenas como fonte de disponibilidade e planejamento.
     HorasEficiencia = Table.AddColumn(ExpandeOrdem, "HorasEficiencia", each [DuracaoHoras], type nullable number),
     PlanejadaAnalitica = Table.AddColumn(HorasEficiencia, "QtdePlanejadaAnalitica", each
-        if [SetorOrdem] = "M1" then [QtdeOrdemConv] else [QtdeOrdem], type nullable number),
+        if [SetorOrdem] = "SETOR A" then [QtdeOrdemConv] else [QtdeOrdem], type nullable number),
     SetorCoerente = Table.AddColumn(PlanejadaAnalitica, "SetorCoerente", each
         [Setor] <> null and [SetorOrdem] <> null and [Setor] = [SetorOrdem], type logical),
-    MetaItemM1Convertida = Table.AddColumn(SetorCoerente, "MetaItemM1Convertida", each
+    MetaItemSETOR_AConvertida = Table.AddColumn(SetorCoerente, "MetaItemSETOR_AConvertida", each
         if [PecasHoraPadrao] <> null and [PecasHoraPadrao] > 0 then [PecasHoraPadrao] else null,
         type nullable number),
-    MetaEficiencia = Table.AddColumn(MetaItemM1Convertida, "MetaEficienciaHora", each
-        if [Setor] = "M2" then
+    MetaEficiencia = Table.AddColumn(MetaItemSETOR_AConvertida, "MetaEficienciaHora", each
+        if [Setor] = "SETOR B" then
             if [MetaPessoaPecasHora] <> null and [MetaPessoaPecasHora] > 0 then [MetaPessoaPecasHora] else null
-        else if [Setor] = "M1" then
-            if [MetaItemM1Convertida] <> null and [MetaItemM1Convertida] > 0 then [MetaItemM1Convertida]
+        else if [Setor] = "SETOR A" then
+            if [MetaItemSETOR_AConvertida] <> null and [MetaItemSETOR_AConvertida] > 0 then [MetaItemSETOR_AConvertida]
             else if [MetaMaquinaRealPecasHora] <> null and [MetaMaquinaRealPecasHora] > 0 then [MetaMaquinaRealPecasHora]
             else null
         else
@@ -316,9 +316,9 @@ let
         type nullable number),
     FonteMeta = Table.AddColumn(MetaEficiencia, "FonteMetaEficiencia", each
         if [MetaEficienciaHora] = null then "SEM_META"
-        else if [Setor] = "M2" then "M2_ITEM_DVCP09_POR_PESSOA"
-        else if [Setor] = "M1" and [MetaItemM1Convertida] <> null then "M1_ITEM_ORDENS_AUX_CONVERTIDA"
-        else if [Setor] = "M1" then "M1_MAQUINA_REAL_CAD_MAQUINAS"
+        else if [Setor] = "SETOR B" then "SETOR_B_ITEM_DVCP09_POR_PESSOA"
+        else if [Setor] = "SETOR A" and [MetaItemSETOR_AConvertida] <> null then "SETOR_A_ITEM_ORDENS_AUX_CONVERTIDA"
+        else if [Setor] = "SETOR A" then "SETOR_A_MAQUINA_REAL_CAD_MAQUINAS"
         else "ORDEM_PECAS_HORA", type text),
     MetaValida = Table.AddColumn(FonteMeta, "MetaValidaEficiencia", each
         [Item] <> null and [SetorCoerente] and [HorasEficiencia] <> null and [HorasEficiencia] > 0 and
@@ -349,7 +349,7 @@ let
         "LinhaCategoria", "StatusOrdem", "SetorOrdem", "MaquinaPlanejada", "PecasHoraPadrao",
         "MetaPessoaPecasHora", "MetaMaquinaRealPecasHora", "SetorMaquinaCadastro",
         "QtdOperacoesAtivas", "TempoPessoa1000", "Tempo1000Padrao", "FatorConversao",
-        "MetaItemM1Convertida", "MetaEficienciaHora", "FonteMetaEficiencia",
+        "MetaItemSETOR_AConvertida", "MetaEficienciaHora", "FonteMetaEficiencia",
         "MetaValidaEficiencia", "MotivoExclusaoEficiencia", "QuantidadeEficiencia", "SetorCoerente",
         "QtdePlanejadaAnalitica", "QtdeProduzidaSistemaConv", "ChaveEvento", "PossivelDuplicidade"
     })
@@ -510,11 +510,11 @@ in
 
 ### stg_manutencao_detalhe
 
-Esta consulta apenas le e tipa o arquivo DVWM11. Manter a leitura separada da combinacao com aliases evita o erro `Formula.Firewall`.
+Esta consulta apenas le e tipa o arquivo DVWSETOR_A1. Manter a leitura separada da combinacao com aliases evita o erro `Formula.Firewall`.
 
 ```powerquery
 let
-    Caminho = pPastaDashboard & "\DVWM11.xlsm",
+    Caminho = pPastaDashboard & "\DVWSETOR_A1.xlsm",
     Fonte = fxLerAba(Caminho, "Relatório Macro"),
     Cabecalhos = Table.PromoteHeaders(Fonte, [PromoteAllScalars=true]),
     RegistrosReais = Table.SelectRows(Cabecalhos, each fxTexto([Ordem]) <> null),
@@ -737,18 +737,18 @@ let
     MetaAtribuida = Table.AddColumn(CombinadaBase, "MetaPecasAtribuida", each
         if [Matricula] = null or not [MetaValidaEficiencia] or [DuracaoAtribuida] = null or [MetaEficienciaHora] = null
         then null
-        else if [TipoAtribuicao] = "RATEIO_GRUPO" and [Setor] <> "M2" then
+        else if [TipoAtribuicao] = "RATEIO_GRUPO" and [Setor] <> "SETOR B" then
             ([DuracaoAtribuida] * [MetaEficienciaHora]) / [QtdMembros]
         else [DuracaoAtribuida] * [MetaEficienciaHora], type nullable number),
     MetaGrupoHora = Table.AddColumn(MetaAtribuida, "MetaGrupoPecasHora", each
         if [QtdMembros] = null or [QtdMembros] <= 0 or [MetaEficienciaHora] = null then null
-        else if [Setor] = "M2" then [MetaEficienciaHora] * [QtdMembros]
+        else if [Setor] = "SETOR B" then [MetaEficienciaHora] * [QtdMembros]
         else [MetaEficienciaHora], type nullable number)
 in
     MetaGrupoHora
 ```
 
-Somente o setor `M2` multiplica a meta pela composicao real do grupo no dia. Nos demais setores, quantidade e meta sao rateadas entre os componentes apenas para permitir a leitura individual; a soma retorna a meta unica do recurso, sem multiplicacao por pessoas.
+Somente o setor `SETOR_B` multiplica a meta pela composicao real do grupo no dia. Nos demais setores, quantidade e meta sao rateadas entre os componentes apenas para permitir a leitura individual; a soma retorna a meta unica do recurso, sem multiplicacao por pessoas.
 
 ### fato_eficiencia_lancamento
 
@@ -776,11 +776,11 @@ let
     ExpandeParadas = Table.ExpandTableColumn(JuntaParadas, "Paradas", {"HorasParadasTurno"}, {"HorasParadasTurno"}),
     ParadaRateada = Table.AddColumn(ExpandeParadas, "HorasParadasRateadas", each if [HorasParadasTurno] = null or [HorasParadasTurno] <= 0 then 0 else if [QtdLancamentosTurno] > 1 and [QuantidadeTurno] > 0 then [HorasParadasTurno] * (if [Quantidade] = null then 0 else [Quantidade]) / [QuantidadeTurno] else [HorasParadasTurno], type number),
     HorasLiquidas = Table.AddColumn(ParadaRateada, "HorasTrabalhadasLiquidas", each let h = (if [DuracaoRateada] = null then 0 else [DuracaoRateada]) - [HorasParadasRateadas] in if h < 0 then 0 else h, type number),
-    MembrosM2Base = Table.SelectRows(fato_producao_pessoa, each [Setor] = "M2"),
-    MembrosM2 = Table.Group(MembrosM2Base, {"ChaveEvento"}, {{"QtdMembrosEficiencia", each let v = List.RemoveNulls([QtdMembros]) in if List.IsEmpty(v) then 1 else List.Max(v), Int64.Type}}),
-    JuntaMembros = Table.NestedJoin(HorasLiquidas, {"ChaveEvento"}, MembrosM2, {"ChaveEvento"}, "MembrosM2", JoinKind.LeftOuter),
-    ExpandeMembros = Table.ExpandTableColumn(JuntaMembros, "MembrosM2", {"QtdMembrosEficiencia"}, {"QtdMembrosEficiencia"}),
-    FatorPessoas = Table.AddColumn(ExpandeMembros, "FatorPessoasEficiencia", each if [Setor] = "M2" then (if [QtdMembrosEficiencia] = null or [QtdMembrosEficiencia] < 1 then 1 else [QtdMembrosEficiencia]) else 1, type number),
+    MembrosSETOR_BBase = Table.SelectRows(fato_producao_pessoa, each [Setor] = "SETOR B"),
+    MembrosSETOR_B = Table.Group(MembrosSETOR_BBase, {"ChaveEvento"}, {{"QtdMembrosEficiencia", each let v = List.RemoveNulls([QtdMembros]) in if List.IsEmpty(v) then 1 else List.Max(v), Int64.Type}}),
+    JuntaMembros = Table.NestedJoin(HorasLiquidas, {"ChaveEvento"}, MembrosSETOR_B, {"ChaveEvento"}, "MembrosSETOR_B", JoinKind.LeftOuter),
+    ExpandeMembros = Table.ExpandTableColumn(JuntaMembros, "MembrosSETOR_B", {"QtdMembrosEficiencia"}, {"QtdMembrosEficiencia"}),
+    FatorPessoas = Table.AddColumn(ExpandeMembros, "FatorPessoasEficiencia", each if [Setor] = "SETOR B" then (if [QtdMembrosEficiencia] = null or [QtdMembrosEficiencia] < 1 then 1 else [QtdMembrosEficiencia]) else 1, type number),
     MetaEsperada = Table.AddColumn(FatorPessoas, "MetaEsperadaEficiencia", each if [MetaValidaEficiencia] = true then [HorasTrabalhadasLiquidas] * [MetaEficienciaHora] * [FatorPessoasEficiencia] else null, type nullable number),
     Eficiencia = Table.AddColumn(MetaEsperada, "EficienciaLancamento", each if [MetaEsperadaEficiencia] = null or [MetaEsperadaEficiencia] <= 0 or [QuantidadeEficiencia] = null then null else [QuantidadeEficiencia] / [MetaEsperadaEficiencia], type nullable number),
     SomaEficiencia = Table.AddColumn(Eficiencia, "SomaEficienciaLancamento", each if [EficienciaLancamento] = null then 0 else [EficienciaLancamento], type number),
@@ -825,7 +825,7 @@ let
     Registros = Table.AddColumn(Fonte, "Alertas", each List.RemoveNulls({
         if [Ordem] = null then [TipoAlerta="PRODUCAO_SEM_ORDEM", Coluna="Ordem"] else null,
         if [Maquina] = null then [TipoAlerta="PRODUCAO_SEM_MAQUINA", Coluna="Maquina"] else null,
-        if [Setor] <> "M1" and [DuracaoHoras] = null then [TipoAlerta="PRODUCAO_SEM_DURACAO", Coluna="DuracaoHoras"] else null,
+        if [Setor] <> "SETOR A" and [DuracaoHoras] = null then [TipoAlerta="PRODUCAO_SEM_DURACAO", Coluna="DuracaoHoras"] else null,
         if [Quantidade] = null then [TipoAlerta="PRODUCAO_SEM_QUANTIDADE", Coluna="Quantidade"] else null,
         if [PossivelDuplicidade] then [TipoAlerta="POSSIVEL_DUPLICIDADE_PRODUCAO", Coluna="ChaveEvento"] else null
     }), type list),
@@ -1293,4 +1293,3 @@ Ponto importante: a lista de datas agora tambem inclui `fato_dados_mensais[DataM
 ### Observacao de historico
 
 Apenas `fato_dados_mensais` e a futura carga historica consolidada de `RESUMO_ANALISE` devem ser usadas para comparativos mensais. As demais abas do `CALENDARIO_FABRIL_OPERACIONAL.xlsm` representam principalmente o mes vigente, salvo orientacao futura.
-

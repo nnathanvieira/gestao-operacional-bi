@@ -16,18 +16,18 @@ SUMX(
         fato_ordens[StatusOrdem] <> "SUSPENSA"
     ),
     IF(
-        fato_ordens[Setor] = "M1",
+        fato_ordens[Setor] = "SETOR A",
         COALESCE(fato_ordens[QtdeOrdemConv], fato_ordens[QtdeOrdem]),
         fato_ordens[QtdeOrdem]
     )
 )
 
-Qtd Planejada Convertida M1 =
+Qtd Planejada Convertida SETOR_A =
 CALCULATE(
     SUM(fato_ordens[QtdeOrdemConv]),
     fato_ordens[MaisRecente] = 1,
     fato_ordens[StatusOrdem] <> "SUSPENSA",
-    fato_ordens[Setor] = "M1"
+    fato_ordens[Setor] = "SETOR A"
 )
 
 Qtd Produzida Oficial =
@@ -36,11 +36,11 @@ SUM(fato_producao[Quantidade])
 Qtd Produzida Sistema =
 SUM(fato_producao_sistema[QtdeProduzidaSistemaAnalitica])
 
-Qtd Planejada M1 Analitica =
-CALCULATE([Qtd Planejada], fato_ordens[Setor] = "M1")
+Qtd Planejada SETOR_A Analitica =
+CALCULATE([Qtd Planejada], fato_ordens[Setor] = "SETOR A")
 
-Qtd Produzida Oficial M1 =
-CALCULATE([Qtd Produzida Oficial], fato_producao[Setor] = "M1")
+Qtd Produzida Oficial SETOR_A =
+CALCULATE([Qtd Produzida Oficial], fato_producao[Setor] = "SETOR A")
 
 Saldo Disponivel Ordem =
 MAX(0, [Qtd Planejada] - [Qtd Produzida Oficial])

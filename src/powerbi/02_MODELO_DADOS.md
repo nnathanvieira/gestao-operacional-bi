@@ -66,7 +66,7 @@ Regra: nao agregar linhas de maquinas com recursos agregados no mesmo indicador.
 
 ### fato_manutencao_detalhe
 
-Origem: `DVWM11[Relatorio Macro]`.
+Origem: `DVWSETOR_A1[Relatorio Macro]`.
 
 Grao: ordem de manutencao + tecnico/tarefa.
 
@@ -109,10 +109,10 @@ Regras:
 - lancamento individual: 100% da quantidade e duracao para a matricula;
 - lancamento de grupo: quantidade dividida pelo numero de integrantes vigentes;
 - a soma de `QuantidadeAtribuida` por evento deve ser igual a quantidade original;
-- somente M2 multiplica a meta individual pela quantidade real de integrantes do grupo no dia;
-- fora do M2, a meta unica do recurso e dividida entre os integrantes, de modo que a soma nao seja multiplicada pela quantidade de pessoas;
-- M2 usa a meta do item calculada pela soma das operacoes vigentes do DVCP09;
-- M1 usa `ORDENS_AUX[PecasHoraPadrao]`, ja preparada na unidade convertida; sem essa meta, usa `CAD_MAQUINAS[MetaPecasHora]` da maquina real do lancamento;
+- somente SETOR_B multiplica a meta individual pela quantidade real de integrantes do grupo no dia;
+- fora do SETOR_B, a meta unica do recurso e dividida entre os integrantes, de modo que a soma nao seja multiplicada pela quantidade de pessoas;
+- SETOR_B usa a meta do item calculada pela soma das operacoes vigentes do DVCP09;
+- SETOR_A usa `ORDENS_AUX[PecasHoraPadrao]`, ja preparada na unidade convertida; sem essa meta, usa `CAD_MAQUINAS[MetaPecasHora]` da maquina real do lancamento;
 - demais setores usam `ORDENS_AUX[PecasHoraPadrao]`, sem multiplicador por pessoas;
 - `QuantidadeEficienciaAtribuida` e `MetaPecasAtribuida` ficam vazias quando a meta nao e clara, a duracao e invalida, a ordem nao existe ou o setor lancado difere do setor da ordem;
 - grupo sem composicao vigente gera alerta e nao e rateado silenciosamente.
@@ -177,7 +177,7 @@ Estrutura reservada, sem linhas. Nao criar dados ficticios.
 3. `QtdeOrdem` e `QtdeOrdemConv` sao medidas alternativas, nunca aditivas.
 4. `TempoEstimadoH` e `HorasAlocadas` sao medidas alternativas, nunca aditivas.
 5. Parada de manutencao usa `fato_manutencao_ordem`, nao a tabela de detalhe.
-6. Agregados M1 sao excluidos quando maquinas componentes estiverem no mesmo contexto.
+6. Agregados SETOR_A sao excluidos quando maquinas componentes estiverem no mesmo contexto.
 7. Classificacao de categoria vem somente de `ITEM_CATEGORIA` e nao altera quantidades.
 8. Rateio por pessoa deve reconciliar com a quantidade original por evento.
 
@@ -261,7 +261,7 @@ Ainda nao usar `dim_setor[Setor]`, pois essa dimensao nao existia no modelo ante
 
 ### Regras criticas de calculo
 
-- `fato_producao[DuracaoHoras]` e a base de horas executadas, eficiencia e performance para todos os setores, inclusive M1. A antiga excecao que substituia a duracao de M1 por `PARAM_TURNOS[HorasReaisRef]` esta revogada.
+- `fato_producao[DuracaoHoras]` e a base de horas executadas, eficiencia e performance para todos os setores, inclusive SETOR_A. A antiga excecao que substituia a duracao de SETOR_A por `PARAM_TURNOS[HorasReaisRef]` esta revogada.
 - `fato_param_turnos[HorasReaisRef]` deve ser usado somente para disponibilidade, capacidade e distribuicao do planejamento semanal. Nao pode substituir a duracao de um lancamento real.
 - Quando dois ou mais lancamentos tiverem a mesma combinacao de data, setor, maquina, turno e todos tiverem `DuracaoHoras >= 8`, a duracao do turno deve ser considerada uma unica vez e rateada proporcionalmente a `Quantidade` de cada lancamento.
 - `fato_eficiencia_lancamento` e a fato final de eficiencia. Relacione-a a `dim_data`, `dim_maquina` e `dim_turno` com filtro em sentido unico, da dimensao para a fato. Enquanto `dim_setor` nao existir no modelo, mantenha o filtro de setor pelos campos das fatos; nao crie relacionamentos entre fatos.
