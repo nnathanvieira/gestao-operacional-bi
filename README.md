@@ -21,7 +21,7 @@ A solução permite investigar perguntas como:
 
 ## Demonstração
 
-[Abrir dashboard de Produção](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html) · [Abrir Análise Crítica](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/analise_critica.html)
+[Abrir dashboard de Produção](https://nnathanvieira.github.io/gestao-operacional-bi/demo/dashboard_demo.html) · [Abrir Análise Crítica](https://nnathanvieira.github.io/gestao-operacional-bi/demo/analise_critica.html)
 
 A demonstração reproduz a mesma composição do visual HTML Content usado no Power BI. São onze páginas interligadas, com filtros por período, setor, máquina, turno, ordem, item, grupo e funcionário. Todo o conteúdo publicado é sintético.
 
@@ -100,7 +100,7 @@ src/
 
 ## Como explorar
 
-1. Comece pela [demonstração interativa](https://nnathanvieira.github.io/calendario-fabril-dashboard-producao/demo/dashboard_demo.html).
+1. Comece pela [demonstração interativa](https://nnathanvieira.github.io/gestao-operacional-bi/demo/dashboard_demo.html).
 2. Consulte a arquitetura em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 3. Veja as transformações em [`src/powerbi/01_POWER_QUERY_TRATAMENTO.md`](src/powerbi/01_POWER_QUERY_TRATAMENTO.md).
 4. Analise o modelo em [`src/powerbi/02_MODELO_DADOS.md`](src/powerbi/02_MODELO_DADOS.md).
